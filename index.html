@@ -1590,11 +1590,164 @@ select option { background:var(--dark3); }
           </div>
         </div>
 
+        <!-- Laporan Kas Bon -->
+        <div class="section" style="grid-column:1/-1;">
+          <div class="section-body">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+              <div>
+                <div style="font-size:32px;margin-bottom:8px;">💳</div>
+                <div class="section-title" style="margin-bottom:6px;">Laporan Kas Bon</div>
+                <div style="font-size:12px;color:var(--gray);">Rekap pinjaman, cicilan, dan sisa hutang karyawan</div>
+              </div>
+              <div class="flex gap-2 items-center" style="flex-wrap:wrap;">
+                <select id="lap-kasbon-status" style="width:120px;" onchange="renderLaporanKasbon()">
+                  <option value="">Semua Status</option>
+                  <option value="Aktif">Aktif</option>
+                  <option value="Lunas">Lunas</option>
+                </select>
+                <select id="lap-kasbon-divisi" style="width:110px;" onchange="renderLaporanKasbon()">
+                  <option value="">Semua</option>
+                  <option value="HO">HO</option><option value="DMB">DMB</option>
+                  <option value="CTR">CTR</option><option value="GDS">GDS</option>
+                  <option value="BKS">BKS</option><option value="CKG">CKG</option>
+                </select>
+                <input type="text" id="lap-kasbon-search" placeholder="Cari nama..." oninput="renderLaporanKasbon()" style="width:160px;">
+                <button class="btn btn-green btn-sm" onclick="exportLaporanKasbon()">📁 Excel</button>
+                <button class="btn btn-outline btn-sm" onclick="printLaporanKasbon()" style="border-color:#e74c3c;color:#e74c3c;">🖨 PDF</button>
+              </div>
+            </div>
+            <div class="summary-row" style="margin-top:12px;">
+              <div class="summary-item">
+                <div class="summary-item-label">Total Pinjaman</div>
+                <div class="summary-item-value text-red" id="lap-kasbon-total-pinjaman">Rp 0</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-item-label">Sisa Hutang</div>
+                <div class="summary-item-value text-gold" id="lap-kasbon-sisa">Rp 0</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-item-label">Karyawan Berkas Aktif</div>
+                <div class="summary-item-value" id="lap-kasbon-jumlah-aktif">0</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-item-label">Sudah Lunas</div>
+                <div class="summary-item-value text-green" id="lap-kasbon-lunas">0</div>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>No</th><th>Tanggal</th><th>Nama</th><th>Divisi</th><th>Jumlah Pinjaman</th><th>Cicilan</th><th>Via</th><th>Sisa Hutang</th><th>Keterangan</th><th>Status</th></tr></thead>
+                <tbody id="tbody-lap-kasbon"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Laporan Lembur -->
+        <div class="section" style="grid-column:1/-1;">
+          <div class="section-body">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+              <div>
+                <div style="font-size:32px;margin-bottom:8px;">⏰</div>
+                <div class="section-title" style="margin-bottom:6px;">Laporan Lembur Karyawan</div>
+                <div style="font-size:12px;color:var(--gray);">Rekap lembur per bulan — jam, upah, dan status approval</div>
+              </div>
+              <div class="flex gap-2 items-center" style="flex-wrap:wrap;">
+                <select id="lap-lembur-periode" style="width:150px;" onchange="renderLaporanLembur()"></select>
+                <select id="lap-lembur-status" style="width:120px;" onchange="renderLaporanLembur()">
+                  <option value="">Semua Status</option>
+                  <option value="Disetujui">Disetujui</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Ditolak">Ditolak</option>
+                </select>
+                <select id="lap-lembur-divisi" style="width:110px;" onchange="renderLaporanLembur()">
+                  <option value="">Semua</option>
+                  <option value="HO">HO</option><option value="DMB">DMB</option>
+                  <option value="CTR">CTR</option><option value="GDS">GDS</option>
+                  <option value="BKS">BKS</option><option value="CKG">CKG</option>
+                </select>
+                <input type="text" id="lap-lembur-search" placeholder="Cari nama..." oninput="renderLaporanLembur()" style="width:160px;">
+                <button class="btn btn-green btn-sm" onclick="exportLaporanLembur()">📁 Excel</button>
+                <button class="btn btn-outline btn-sm" onclick="printLaporanLembur()" style="border-color:#e74c3c;color:#e74c3c;">🖨 PDF</button>
+              </div>
+            </div>
+            <div class="summary-row" style="margin-top:12px;">
+              <div class="summary-item">
+                <div class="summary-item-label">Total Jam Lembur</div>
+                <div class="summary-item-value text-gold" id="lap-lembur-total-jam">0 Jam</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-item-label">Total Upah Lembur</div>
+                <div class="summary-item-value text-green" id="lap-lembur-total-upah">Rp 0</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-item-label">Disetujui</div>
+                <div class="summary-item-value text-green" id="lap-lembur-disetujui">0</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-item-label">Pending</div>
+                <div class="summary-item-value text-gold" id="lap-lembur-pending">0</div>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>No</th><th>Tanggal</th><th>Nama</th><th>Divisi</th><th>Mulai</th><th>Selesai</th><th>Jam Total</th><th>Upah/Jam</th><th>Bonus Malam</th><th>Total Upah</th><th>Status</th></tr></thead>
+                <tbody id="tbody-lap-lembur"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Laporan UM Bulanan -->
+        <div class="section" style="grid-column:1/-1;">
+          <div class="section-body">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+              <div>
+                <div style="font-size:32px;margin-bottom:8px;">🍱</div>
+                <div class="section-title" style="margin-bottom:6px;">Laporan Uang Makan (UM) Bulanan</div>
+                <div style="font-size:12px;color:var(--gray);">Rekap uang makan karyawan berdasarkan kehadiran per bulan</div>
+              </div>
+              <div class="flex gap-2 items-center" style="flex-wrap:wrap;">
+                <select id="lap-um-bulan-periode" style="width:160px;" onchange="renderLaporanUMBulanan()"></select>
+                <select id="lap-um-bulan-divisi" style="width:110px;" onchange="renderLaporanUMBulanan()">
+                  <option value="">Semua</option>
+                  <option value="HO">HO</option><option value="DMB">DMB</option>
+                  <option value="CTR">CTR</option><option value="GDS">GDS</option>
+                  <option value="BKS">BKS</option><option value="CKG">CKG</option>
+                </select>
+                <button class="btn btn-green btn-sm" onclick="exportLaporanUMBulanan()">📁 Excel</button>
+                <button class="btn btn-outline btn-sm" onclick="printLaporanUMBulanan()" style="border-color:#e74c3c;color:#e74c3c;">🖨 PDF</button>
+              </div>
+            </div>
+            <div class="summary-row" style="margin-top:12px;">
+              <div class="summary-item">
+                <div class="summary-item-label">Total UM Dibayar</div>
+                <div class="summary-item-value text-gold" id="lap-um-bulan-total">Rp 0</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-item-label">Rata-rata per Karyawan</div>
+                <div class="summary-item-value" id="lap-um-bulan-avg">Rp 0</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-item-label">Karyawan Aktif</div>
+                <div class="summary-item-value" id="lap-um-bulan-jumlah">0</div>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>No</th><th>Nama</th><th>Divisi</th><th>Hari Hadir</th><th>UM/Hari</th><th>Total UM Kotor</th><th>Potongan KB (UM)</th><th>UM Bersih</th></tr></thead>
+                <tbody id="tbody-lap-um-bulan"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 
   </div>
 </main>
+<div id="pdf-print-area" style="display:none;"></div>
 <!-- MODAL EDIT ABSENSI -->
 <div class="modal-overlay" id="modal-edit-absensi">
   <div class="modal">
@@ -4293,9 +4446,14 @@ function renderLaporan() {
     const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
     bulanList.push({val:d.toISOString().slice(0,7), label:d.toLocaleDateString('id-ID',{month:'long',year:'numeric'})});
   }
-  ['lap-absen-periode','lap-gaji-periode','lap-telat-periode'].forEach(function(id){
+  // Isi select periode bulanan - dan paksa pilih bulan ini (April)
+  const periodeSekarang = new Date().toISOString().slice(0,7);
+  ['lap-absen-periode','lap-gaji-periode','lap-telat-periode','lap-lembur-periode','lap-um-bulan-periode'].forEach(function(id){
     const el=document.getElementById(id);
-    if(el){ el.innerHTML=bulanList.map(function(b){return '<option value="'+b.val+'">'+b.label+'</option>';}).join(''); }
+    if(el){
+      el.innerHTML=bulanList.map(function(b){return '<option value="'+b.val+'"'+(b.val===periodeSekarang?' selected':'')+'>'+b.label+'</option>';}).join('');
+      el.value = periodeSekarang;
+    }
   });
 
   // Isi tahun
@@ -4327,6 +4485,9 @@ function renderLaporan() {
   if(sampaiEl&&!sampaiEl.value) sampaiEl.value = toISO(kamis);
 
   renderLaporanTelat();
+  renderLaporanKasbon();
+  renderLaporanLembur();
+  renderLaporanUMBulanan();
 }
 
 function renderLaporanTelat(){
@@ -4429,6 +4590,365 @@ function printLaporanTelat(){
   doPrint(html);
 }
 
+
+// ============ LAPORAN KAS BON ============
+function renderLaporanKasbon() {
+  var statusF = (document.getElementById('lap-kasbon-status')?.value)||'';
+  var divisiF = (document.getElementById('lap-kasbon-divisi')?.value)||'';
+  var q = (document.getElementById('lap-kasbon-search')?.value||'').toLowerCase();
+  var tb = document.getElementById('tbody-lap-kasbon');
+  if(!tb) return;
+
+  var data = db.kasbon.slice();
+  if(statusF) data = data.filter(function(k){ return k.status===statusF; });
+  if(divisiF) data = data.filter(function(k){
+    var kar = db.karyawan.find(function(x){ return x.id===k.karyawanId; });
+    return kar && kar.divisi===divisiF;
+  });
+  if(q) data = data.filter(function(k){ return (k.nama||'').toLowerCase().indexOf(q)>=0; });
+
+  data.sort(function(a,b){ return (b.tanggal||'').localeCompare(a.tanggal||''); });
+
+  var totalPinjaman = data.reduce(function(s,k){ return s+(+k.jumlah||0); },0);
+  var totalSisa = data.reduce(function(s,k){ return s+(+k.sisaHutang||0); },0);
+  var aktifCount = data.filter(function(k){ return k.status==='Aktif'; }).length;
+  var lunasCount = data.filter(function(k){ return k.status==='Lunas'; }).length;
+
+  var el = document.getElementById('lap-kasbon-total-pinjaman');
+  if(el) el.textContent = fRp(totalPinjaman);
+  el = document.getElementById('lap-kasbon-sisa');
+  if(el) el.textContent = fRp(totalSisa);
+  el = document.getElementById('lap-kasbon-jumlah-aktif');
+  if(el) el.textContent = aktifCount;
+  el = document.getElementById('lap-kasbon-lunas');
+  if(el) el.textContent = lunasCount;
+
+  if(!data.length){
+    tb.innerHTML='<tr><td colspan="10"><div class="empty"><div class="empty-icon">💳</div><div class="empty-text">Tidak ada data kas bon</div></div></td></tr>';
+    return;
+  }
+  tb.innerHTML = data.map(function(k,i){
+    var kar = db.karyawan.find(function(x){ return x.id===k.karyawanId; });
+    var divisi = kar ? (kar.divisi||'-') : '-';
+    var statusBadge = k.status==='Aktif'
+      ? '<span class="badge badge-red">Aktif</span>'
+      : '<span class="badge badge-green">Lunas</span>';
+    var viaLabel = k.via==='UM'?'UM Mingguan':k.via==='Gaji'?'Gaji Bulanan':'UM + Gaji';
+    return '<tr>'
+      +'<td>'+(i+1)+'</td>'
+      +'<td>'+(k.tanggal||'-')+'</td>'
+      +'<td><strong>'+(k.nama||'-')+'</strong></td>'
+      +'<td>'+divisi+'</td>'
+      +'<td class="text-red">'+fRp(k.jumlah||0)+'</td>'
+      +'<td>'+fRp(k.cicilan||0)+'</td>'
+      +'<td><span class="badge badge-blue">'+viaLabel+'</span></td>'
+      +'<td class="'+(k.sisaHutang>0?'text-gold':'text-green')+'">'+fRp(k.sisaHutang||0)+'</td>'
+      +'<td style="color:var(--gray);font-size:11px;">'+(k.ket||'-')+'</td>'
+      +'<td>'+statusBadge+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function exportLaporanKasbon() {
+  if(typeof XLSX==='undefined'){showAlert('Library Excel belum dimuat','#E74C3C');return;}
+  var statusF = (document.getElementById('lap-kasbon-status')?.value)||'';
+  var divisiF = (document.getElementById('lap-kasbon-divisi')?.value)||'';
+  var q = (document.getElementById('lap-kasbon-search')?.value||'').toLowerCase();
+
+  var data = db.kasbon.slice();
+  if(statusF) data = data.filter(function(k){ return k.status===statusF; });
+  if(divisiF) data = data.filter(function(k){
+    var kar = db.karyawan.find(function(x){ return x.id===k.karyawanId; });
+    return kar && kar.divisi===divisiF;
+  });
+  if(q) data = data.filter(function(k){ return (k.nama||'').toLowerCase().indexOf(q)>=0; });
+
+  var wb = XLSX.utils.book_new();
+  var rows = [
+    ['LAPORAN KAS BON - RUANGPRINT'],
+    ['Dibuat: '+new Date().toLocaleString('id-ID')],
+    [],
+    ['No','Tanggal','Nama','Divisi','Jumlah Pinjaman','Cicilan','Via','Sisa Hutang','Keterangan','Status']
+  ];
+  data.forEach(function(k,i){
+    var kar = db.karyawan.find(function(x){ return x.id===k.karyawanId; });
+    rows.push([i+1,k.tanggal||'-',k.nama,kar?kar.divisi||'-':'-',k.jumlah||0,k.cicilan||0,k.via||'-',k.sisaHutang||0,k.ket||'-',k.status]);
+  });
+  var ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:4},{wch:12},{wch:25},{wch:8},{wch:16},{wch:14},{wch:14},{wch:14},{wch:22},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws,'Kas Bon');
+  XLSX.writeFile(wb,'Laporan_KasBon_'+todayStr()+'.xlsx');
+  showAlert('✅ Laporan Kas Bon berhasil diexport');
+}
+
+function printLaporanKasbon() {
+  var statusF = (document.getElementById('lap-kasbon-status')?.value)||'Semua';
+  var divisiF = (document.getElementById('lap-kasbon-divisi')?.value)||'Semua';
+  var tb = document.getElementById('tbody-lap-kasbon');
+  if(!tb){showAlert('Data belum tersedia','#E74C3C');return;}
+
+  var totalPinjaman = 0, totalSisa = 0;
+  var rows = [...tb.querySelectorAll('tr')].map(function(tr){
+    var tds = tr.querySelectorAll('td');
+    if(!tds.length) return '';
+    return '<tr><td>'+tds[0].innerText+'</td><td>'+tds[1].innerText+'</td><td>'+tds[2].innerText+'</td><td>'+tds[3].innerText+'</td><td>'+tds[4].innerText+'</td><td>'+tds[5].innerText+'</td><td>'+tds[6].innerText+'</td><td>'+tds[7].innerText+'</td><td>'+tds[8].innerText+'</td><td>'+tds[9].innerText+'</td></tr>';
+  }).join('');
+
+  var aktif = db.kasbon.filter(function(k){return k.status==='Aktif';});
+  var statsHtml = '<div class="pdf-stats">'
+    +'<div class="pdf-stat"><div class="pdf-stat-label">Total Pinjaman</div><div class="pdf-stat-val">'+fRp(db.kasbon.reduce(function(s,k){return s+(+k.jumlah||0);},0))+'</div></div>'
+    +'<div class="pdf-stat"><div class="pdf-stat-label">Sisa Hutang Aktif</div><div class="pdf-stat-val">'+fRp(aktif.reduce(function(s,k){return s+(+k.sisaHutang||0);},0))+'</div></div>'
+    +'<div class="pdf-stat"><div class="pdf-stat-label">Karyawan Aktif KB</div><div class="pdf-stat-val">'+aktif.length+' orang</div></div>'
+    +'</div>';
+
+  var html = pdfHeader('LAPORAN KAS BON','Status: '+statusF+' | Divisi: '+divisiF,'')
+    +statsHtml
+    +'<table class="pdf-table"><thead><tr><th>No</th><th>Tanggal</th><th>Nama</th><th>Divisi</th><th>Pinjaman</th><th>Cicilan</th><th>Via</th><th>Sisa Hutang</th><th>Keterangan</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    +pdfFooter('Dicetak: '+new Date().toLocaleString('id-ID'));
+  doPrint(html);
+}
+
+// ============ LAPORAN LEMBUR ============
+function renderLaporanLembur() {
+  var periode = (document.getElementById('lap-lembur-periode')?.value)||new Date().toISOString().slice(0,7);
+  var statusF = (document.getElementById('lap-lembur-status')?.value)||'';
+  var divisiF = (document.getElementById('lap-lembur-divisi')?.value)||'';
+  var q = (document.getElementById('lap-lembur-search')?.value||'').toLowerCase();
+  var tb = document.getElementById('tbody-lap-lembur');
+  if(!tb) return;
+
+  var data = db.lembur.filter(function(l){ return (l.tanggal||'').startsWith(periode); });
+  if(statusF) data = data.filter(function(l){ return l.status===statusF; });
+  if(divisiF) data = data.filter(function(l){ return l.divisi===divisiF; });
+  if(q) data = data.filter(function(l){ return (l.nama||'').toLowerCase().indexOf(q)>=0; });
+
+  data.sort(function(a,b){ return (b.tanggal||'').localeCompare(a.tanggal||''); });
+
+  var totalJam = data.filter(function(l){return l.status==='Disetujui';}).reduce(function(s,l){return s+(+l.jamTotal||0);},0);
+  var totalUpah = data.filter(function(l){return l.status==='Disetujui';}).reduce(function(s,l){return s+(+l.totalUpah||0);},0);
+  var disetujui = data.filter(function(l){return l.status==='Disetujui';}).length;
+  var pending = data.filter(function(l){return l.status==='Pending';}).length;
+
+  var el = document.getElementById('lap-lembur-total-jam');
+  if(el) el.textContent = totalJam.toFixed(1)+' Jam';
+  el = document.getElementById('lap-lembur-total-upah');
+  if(el) el.textContent = fRp(totalUpah);
+  el = document.getElementById('lap-lembur-disetujui');
+  if(el) el.textContent = disetujui;
+  el = document.getElementById('lap-lembur-pending');
+  if(el) el.textContent = pending;
+
+  if(!data.length){
+    tb.innerHTML='<tr><td colspan="11"><div class="empty"><div class="empty-icon">⏰</div><div class="empty-text">Tidak ada data lembur di periode ini</div></div></td></tr>';
+    return;
+  }
+  tb.innerHTML = data.map(function(l,i){
+    var statusBadge = l.status==='Disetujui'
+      ? '<span class="badge badge-green">Disetujui</span>'
+      : l.status==='Pending'
+      ? '<span class="badge badge-gold">Pending</span>'
+      : '<span class="badge badge-red">Ditolak</span>';
+    return '<tr>'
+      +'<td>'+(i+1)+'</td>'
+      +'<td>'+(l.tanggal||'-')+'</td>'
+      +'<td><strong>'+(l.nama||'-')+'</strong></td>'
+      +'<td>'+(l.divisi||'-')+'</td>'
+      +'<td>'+(l.mulai||'-')+'</td>'
+      +'<td>'+(l.selesai||'-')+'</td>'
+      +'<td class="text-gold"><strong>'+(+l.jamTotal||0).toFixed(1)+' jam</strong></td>'
+      +'<td>'+fRp(l.upahPerJam||0)+'/jam</td>'
+      +'<td>'+(l.bonusMalam>0?'<span class="text-green">+'+fRp(l.bonusMalam)+'</span>':'<span class="text-gray">—</span>')+'</td>'
+      +'<td class="text-green"><strong>'+fRp(l.totalUpah||0)+'</strong></td>'
+      +'<td>'+statusBadge+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function exportLaporanLembur() {
+  if(typeof XLSX==='undefined'){showAlert('Library Excel belum dimuat','#E74C3C');return;}
+  var periode = (document.getElementById('lap-lembur-periode')?.value)||new Date().toISOString().slice(0,7);
+  var statusF = (document.getElementById('lap-lembur-status')?.value)||'';
+  var divisiF = (document.getElementById('lap-lembur-divisi')?.value)||'';
+  var q = (document.getElementById('lap-lembur-search')?.value||'').toLowerCase();
+  var label = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+
+  var data = db.lembur.filter(function(l){ return (l.tanggal||'').startsWith(periode); });
+  if(statusF) data = data.filter(function(l){ return l.status===statusF; });
+  if(divisiF) data = data.filter(function(l){ return l.divisi===divisiF; });
+  if(q) data = data.filter(function(l){ return (l.nama||'').toLowerCase().indexOf(q)>=0; });
+  data.sort(function(a,b){ return (b.tanggal||'').localeCompare(a.tanggal||''); });
+
+  var wb = XLSX.utils.book_new();
+  var rows = [
+    ['LAPORAN LEMBUR KARYAWAN - RUANGPRINT'],
+    ['Periode: '+label, 'Dibuat: '+new Date().toLocaleString('id-ID')],
+    [],
+    ['No','Tanggal','Nama','Divisi','Mulai','Selesai','Jam Total','Upah/Jam','Bonus Malam','Total Upah','Status']
+  ];
+  data.forEach(function(l,i){
+    rows.push([i+1,l.tanggal||'-',l.nama,l.divisi||'-',l.mulai||'-',l.selesai||'-',(+l.jamTotal||0).toFixed(1),l.upahPerJam||0,l.bonusMalam||0,l.totalUpah||0,l.status]);
+  });
+  var ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:4},{wch:12},{wch:25},{wch:8},{wch:8},{wch:8},{wch:10},{wch:12},{wch:14},{wch:14},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws,'Lembur');
+  XLSX.writeFile(wb,'Laporan_Lembur_'+periode+'.xlsx');
+  showAlert('✅ Laporan Lembur berhasil diexport');
+}
+
+function printLaporanLembur() {
+  var periode = (document.getElementById('lap-lembur-periode')?.value)||new Date().toISOString().slice(0,7);
+  var label = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  var divisiF = (document.getElementById('lap-lembur-divisi')?.value)||'Semua';
+  var statusF = (document.getElementById('lap-lembur-status')?.value)||'Semua';
+  var tb = document.getElementById('tbody-lap-lembur');
+  if(!tb){showAlert('Data belum tersedia','#E74C3C');return;}
+
+  var dataSet = db.lembur.filter(function(l){ return (l.tanggal||'').startsWith(periode) && l.status==='Disetujui'; });
+  var totalJam = dataSet.reduce(function(s,l){return s+(+l.jamTotal||0);},0);
+  var totalUpah = dataSet.reduce(function(s,l){return s+(+l.totalUpah||0);},0);
+
+  var statsHtml = '<div class="pdf-stats">'
+    +'<div class="pdf-stat"><div class="pdf-stat-label">Total Jam (Disetujui)</div><div class="pdf-stat-val">'+totalJam.toFixed(1)+' Jam</div></div>'
+    +'<div class="pdf-stat"><div class="pdf-stat-label">Total Upah</div><div class="pdf-stat-val">'+fRp(totalUpah)+'</div></div>'
+    +'<div class="pdf-stat"><div class="pdf-stat-label">Jumlah Entri</div><div class="pdf-stat-val">'+dataSet.length+' lembur</div></div>'
+    +'</div>';
+
+  var rows = [...tb.querySelectorAll('tr')].map(function(tr){
+    var tds = tr.querySelectorAll('td');
+    if(!tds.length) return '';
+    var cells = [...tds].map(function(td){ return '<td>'+td.innerText+'</td>'; }).join('');
+    return '<tr>'+cells+'</tr>';
+  }).join('');
+
+  var html = pdfHeader('LAPORAN LEMBUR KARYAWAN','Periode: '+label+' | Divisi: '+divisiF+' | Status: '+statusF,'')
+    +statsHtml
+    +'<table class="pdf-table"><thead><tr><th>No</th><th>Tanggal</th><th>Nama</th><th>Divisi</th><th>Mulai</th><th>Selesai</th><th>Jam</th><th>Upah/Jam</th><th>Bonus Malam</th><th>Total Upah</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    +pdfFooter('Periode: '+label);
+  doPrint(html);
+}
+
+// ============ LAPORAN UM BULANAN ============
+function renderLaporanUMBulanan() {
+  var periode = (document.getElementById('lap-um-bulan-periode')?.value)||new Date().toISOString().slice(0,7);
+  var divisiF = (document.getElementById('lap-um-bulan-divisi')?.value)||'';
+  var tb = document.getElementById('tbody-lap-um-bulan');
+  if(!tb) return;
+
+  var UM_PER_HARI = 40000;
+  var aktif = db.karyawan.filter(function(k){
+    if(k.status!=='Aktif') return false;
+    if(divisiF && k.divisi!==divisiF) return false;
+    return true;
+  });
+
+  var rows = aktif.map(function(k){
+    var abs = db.absensi.filter(function(a){return a.karyawanId===k.id&&(a.tanggal||'').startsWith(periode);});
+    var hariHadir = abs.filter(function(a){return a.status==='Hadir';}).length;
+    var umKotor = hariHadir * UM_PER_HARI;
+    var potonganKB = db.kasbon.filter(function(kb){return kb.karyawanId===k.id&&kb.status==='Aktif'&&(kb.via==='UM'||kb.via==='Keduanya');})
+      .reduce(function(s,kb){return s+Math.min(kb.sisaHutang,kb.cicilanUM||0);},0);
+    var umBersih = Math.max(0, umKotor - potonganKB);
+    return {nama:k.nama, divisi:k.divisi||'-', hariHadir, umKotor, potonganKB, umBersih};
+  });
+
+  var totalUM = rows.reduce(function(s,r){return s+r.umBersih;},0);
+  var avg = rows.length>0 ? Math.round(totalUM/rows.length) : 0;
+
+  var el = document.getElementById('lap-um-bulan-total');
+  if(el) el.textContent = fRp(totalUM);
+  el = document.getElementById('lap-um-bulan-avg');
+  if(el) el.textContent = fRp(avg);
+  el = document.getElementById('lap-um-bulan-jumlah');
+  if(el) el.textContent = rows.length;
+
+  if(!rows.length){
+    tb.innerHTML='<tr><td colspan="8"><div class="empty"><div class="empty-icon">🍱</div><div class="empty-text">Tidak ada data uang makan di periode ini</div></div></td></tr>';
+    return;
+  }
+  tb.innerHTML = rows.map(function(r,i){
+    return '<tr>'
+      +'<td>'+(i+1)+'</td>'
+      +'<td><strong>'+r.nama+'</strong></td>'
+      +'<td>'+r.divisi+'</td>'
+      +'<td class="text-gold">'+r.hariHadir+' hari</td>'
+      +'<td>'+fRp(UM_PER_HARI)+'</td>'
+      +'<td>'+fRp(r.umKotor)+'</td>'
+      +'<td class="text-red">'+(r.potonganKB>0?'('+fRp(r.potonganKB)+')':'<span class="text-gray">—</span>')+'</td>'
+      +'<td class="text-green"><strong>'+fRp(r.umBersih)+'</strong></td>'
+      +'</tr>';
+  }).join('');
+}
+
+function exportLaporanUMBulanan() {
+  if(typeof XLSX==='undefined'){showAlert('Library Excel belum dimuat','#E74C3C');return;}
+  var periode = (document.getElementById('lap-um-bulan-periode')?.value)||new Date().toISOString().slice(0,7);
+  var divisiF = (document.getElementById('lap-um-bulan-divisi')?.value)||'';
+  var label = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  var UM_PER_HARI = 40000;
+
+  var aktif = db.karyawan.filter(function(k){
+    if(k.status!=='Aktif') return false;
+    if(divisiF && k.divisi!==divisiF) return false;
+    return true;
+  });
+  var wb = XLSX.utils.book_new();
+  var rows = [
+    ['LAPORAN UANG MAKAN (UM) BULANAN - RUANGPRINT'],
+    ['Periode: '+label,'Dibuat: '+new Date().toLocaleString('id-ID')],
+    [],
+    ['No','Nama','Divisi','Hari Hadir','UM/Hari','Total UM Kotor','Potongan KB (UM)','UM Bersih']
+  ];
+  aktif.forEach(function(k,i){
+    var abs = db.absensi.filter(function(a){return a.karyawanId===k.id&&(a.tanggal||'').startsWith(periode);});
+    var hariHadir = abs.filter(function(a){return a.status==='Hadir';}).length;
+    var umKotor = hariHadir * UM_PER_HARI;
+    var potonganKB = db.kasbon.filter(function(kb){return kb.karyawanId===k.id&&kb.status==='Aktif'&&(kb.via==='UM'||kb.via==='Keduanya');})
+      .reduce(function(s,kb){return s+Math.min(kb.sisaHutang,kb.cicilanUM||0);},0);
+    rows.push([i+1,k.nama,k.divisi||'-',hariHadir,UM_PER_HARI,umKotor,potonganKB,Math.max(0,umKotor-potonganKB)]);
+  });
+  var ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:4},{wch:25},{wch:8},{wch:12},{wch:12},{wch:16},{wch:18},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws,'UM Bulanan');
+  XLSX.writeFile(wb,'Laporan_UM_'+periode+'.xlsx');
+  showAlert('✅ Laporan UM berhasil diexport');
+}
+
+function printLaporanUMBulanan() {
+  var periode = (document.getElementById('lap-um-bulan-periode')?.value)||new Date().toISOString().slice(0,7);
+  var label = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  var divisiF = (document.getElementById('lap-um-bulan-divisi')?.value)||'Semua';
+  var tb = document.getElementById('tbody-lap-um-bulan');
+  if(!tb){showAlert('Data belum tersedia','#E74C3C');return;}
+
+  var UM_PER_HARI = 40000;
+  var aktif = db.karyawan.filter(function(k){return k.status==='Aktif';});
+  var totalUM = aktif.reduce(function(s,k){
+    var abs = db.absensi.filter(function(a){return a.karyawanId===k.id&&(a.tanggal||'').startsWith(periode)&&a.status==='Hadir';});
+    var potonganKB = db.kasbon.filter(function(kb){return kb.karyawanId===k.id&&kb.status==='Aktif'&&(kb.via==='UM'||kb.via==='Keduanya');})
+      .reduce(function(ss,kb){return ss+Math.min(kb.sisaHutang,kb.cicilanUM||0);},0);
+    return s+Math.max(0,(abs.length*UM_PER_HARI)-potonganKB);
+  },0);
+
+  var statsHtml = '<div class="pdf-stats">'
+    +'<div class="pdf-stat"><div class="pdf-stat-label">Total UM Bersih</div><div class="pdf-stat-val">'+fRp(totalUM)+'</div></div>'
+    +'<div class="pdf-stat"><div class="pdf-stat-label">Karyawan Aktif</div><div class="pdf-stat-val">'+aktif.length+' orang</div></div>'
+    +'<div class="pdf-stat"><div class="pdf-stat-label">UM per Hari</div><div class="pdf-stat-val">'+fRp(UM_PER_HARI)+'</div></div>'
+    +'</div>';
+
+  var rows = [...tb.querySelectorAll('tr')].map(function(tr){
+    var tds = tr.querySelectorAll('td');
+    if(!tds.length) return '';
+    var cells = [...tds].map(function(td){ return '<td>'+td.innerText+'</td>'; }).join('');
+    return '<tr>'+cells+'</tr>';
+  }).join('');
+
+  var html = pdfHeader('LAPORAN UANG MAKAN (UM) BULANAN','Periode: '+label+' | Divisi: '+divisiF,'Total: '+aktif.length+' karyawan')
+    +statsHtml
+    +'<table class="pdf-table"><thead><tr><th>No</th><th>Nama</th><th>Divisi</th><th>Hari Hadir</th><th>UM/Hari</th><th>UM Kotor</th><th>Potongan KB</th><th>UM Bersih</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    +pdfFooter('Periode: '+label);
+  doPrint(html);
+}
+
 function isiUMPeriodeCepat(jumatStr) {
   if(!jumatStr) return;
   // Set umSelectedJumat agar slip dan fungsi lain sync
@@ -4524,7 +5044,7 @@ function exportLaporanUM() {
   ];
 
   let totalUM=0, totalLembur=0, grandTotal=0;
-  db.karyawan.filter(function(k){return k.status==='Aktif'&&k.umMode==='minggu';}).forEach(function(k,i){
+  db.karyawan.filter(function(k){return k.status==='Aktif';}).forEach(function(k,i){
     // Hitung hadir dalam range
     const absR = db.absensi.filter(function(a){return a.karyawanId===k.id&&a.tanggal>=dari&&a.tanggal<=sampai;});
     const hadir = absR.filter(function(a){return a.status==='Hadir';}).length;
@@ -5862,8 +6382,8 @@ function doPrint(htmlContent){
     + '.pdf-company span{color:#111;}'
     + '.pdf-title{font-size:14px;font-weight:700;color:#111;margin-top:2px;}'
     + '.pdf-meta{font-size:10px;color:#666;text-align:right;}'
-    + '.pdf-stats{display:flex;gap:12px;margin-bottom:16px;}'
-    + '.pdf-stat{flex:1;background:#f5f5f5;border-left:3px solid #F5A800;padding:8px 10px;}'
+    + '.pdf-stats{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;}'
+    + '.pdf-stat{flex:1;min-width:130px;background:#f5f5f5;border-left:3px solid #F5A800;padding:8px 10px;}'
     + '.pdf-stat-label{font-size:9px;color:#888;text-transform:uppercase;}'
     + '.pdf-stat-val{font-size:16px;font-weight:900;color:#111;}'
     + '.pdf-table{width:100%;border-collapse:collapse;margin-top:10px;}'
@@ -5876,39 +6396,29 @@ function doPrint(htmlContent){
     + '.pdf-sign-box{flex:1;text-align:center;}'
     + '.pdf-sign-line{border-top:1px solid #ccc;margin-top:40px;padding-top:4px;font-size:9px;color:#888;}'
     + '.no-print{text-align:center;padding:12px;background:#f0f0f0;margin-bottom:16px;border-radius:8px;}'
-    + '@media print{.no-print{display:none;}@page{margin:10mm;}}';
+    + '@media print{.no-print{display:none;}body{padding:0;}@page{margin:10mm;}}';
 
-  var btnHTML = '<div class="no-print">'
-    + '<button onclick="window.print()" style="background:#F5A800;color:#111;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-right:8px;">&#128438; Print / Save PDF</button>'
-    + '<button onclick="window.close()" style="background:transparent;border:1px solid #ccc;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;">&#10005; Tutup</button>'
-    + '</div>';
-
-  var printWin = window.open('', '_blank', 'width=1000,height=750');
-  if(!printWin){
-    // Fallback: tampilkan inline
-    var area = document.getElementById('pdf-print-area');
-    if(area){
-      area.style.display='block';
-      area.style.background='white';
-      area.style.padding='20px';
-      area.style.margin='16px 0';
-      area.style.borderRadius='8px';
-      area.style.border='1px solid #eee';
-      area.innerHTML = '<style>'+styles+'</style>'+btnHTML.replace('window.close()','document.getElementById(\'pdf-print-area\').style.display=\'none\'')+htmlContent;
-      area.scrollIntoView({behavior:'smooth'});
-    } else {
-      alert('Izinkan pop-up untuk file ini di address bar browser!');
-    }
-    return;
+  // Selalu gunakan overlay inline (lebih reliable, tidak terblokir popup blocker)
+  var area = document.getElementById('pdf-print-area');
+  if(!area){
+    area = document.createElement('div');
+    area.id = 'pdf-print-area';
+    document.body.appendChild(area);
   }
-  printWin.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Laporan RuangHRD</title><style>'+styles+'</style></head><body>'+btnHTML+htmlContent+'<\/body><\/html>');
-  printWin.document.close();
-  printWin.focus();
+  var closeBtnHTML = '<div class="no-print" style="text-align:center;padding:12px;background:#f0f0f0;margin-bottom:16px;border-radius:8px;">'
+    + '<button onclick="window.print()" style="background:#F5A800;color:#111;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-right:8px;">🖨 Print / Simpan PDF</button>'
+    + '<button onclick="document.getElementById(\'pdf-print-area\').style.display=\'none\';document.body.style.overflow=\'\'" style="background:transparent;border:1px solid #ccc;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;">✕ Tutup</button>'
+    + '</div>';
+  area.style.cssText='display:block;position:fixed;inset:0;z-index:9999;background:white;overflow-y:auto;padding:24px 28px;';
+  document.body.style.overflow='hidden';
+  area.innerHTML = '<style>'+styles+'</style>'+closeBtnHTML+htmlContent;
+  area.scrollTop=0;
 }
 
 function tutupPDFPreview() {
   var area = document.getElementById('pdf-print-area');
   if(area) { area.style.display='none'; area.innerHTML=''; }
+  document.body.style.overflow='';
 }
 
 function pdfHeader(title, subtitle, meta) {
@@ -6016,10 +6526,17 @@ function printLaporanGaji() {
 function printLaporanUM() {
   var dari = document.getElementById('lap-um-dari').value;
   var sampai = document.getElementById('lap-um-sampai').value;
+  var lapUmDivisi = document.getElementById('lap-um-divisi');
+  var divisiF = lapUmDivisi ? lapUmDivisi.value : '';
   if(!dari||!sampai){showAlert('Pilih rentang tanggal!','#E74C3C');return;}
   var fmtTgl=function(s){return new Date(s).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'});};
   var label = fmtTgl(dari)+' s/d '+fmtTgl(sampai);
-  var list = db.karyawan.filter(function(k){return k.status==='Aktif'&&k.umMode==='minggu';});
+  // Tampilkan semua karyawan aktif (tidak hanya umMode=minggu)
+  var list = db.karyawan.filter(function(k){
+    if(k.status!=='Aktif') return false;
+    if(divisiF && k.divisi!==divisiF) return false;
+    return true;
+  });
   var totalUM=0, totalLembur=0, grand=0;
 
   var rows = list.map(function(k,i){
@@ -6027,13 +6544,13 @@ function printLaporanUM() {
     var hadir=absR.filter(function(a){return a.status==='Hadir';}).length;
     var alpha=absR.filter(function(a){return a.status==='Alpha';}).length;
     var umKotor=hadir*ATURAN.umPerHari;
-    var kb=db.kasbon.filter(function(x){return x.karyawanId===k.id&&x.status==='Aktif'&&x.via==='UM';}).reduce(function(s,x){return s+Math.min(x.sisaHutang,x.cicilan);},0);
+    var kb=db.kasbon.filter(function(x){return x.karyawanId===k.id&&x.status==='Aktif'&&(x.via==='UM'||x.via==='Keduanya');}).reduce(function(s,x){return s+Math.min(x.sisaHutang,x.cicilanUM||x.cicilan);},0);
     var umBersih=Math.max(0,umKotor-kb);
     var lembur=db.lembur.filter(function(l){return l.karyawanId===k.id&&l.status==='Disetujui'&&l.tanggal>=dari&&l.tanggal<=sampai;}).reduce(function(s,l){return s+l.totalUpah;},0);
     var total=umBersih+lembur;
     totalUM+=umBersih; totalLembur+=lembur; grand+=total;
     return '<tr><td>'+(i+1)+'</td><td>'+(k.npk||'-')+'</td><td><strong>'+k.nama+'</strong></td>'
-      +'<td>'+( k.divisi||'-')+'</td>'
+      +'<td>'+(k.divisi||'-')+'</td>'
       +'<td style="text-align:center;">'+(hadir>0?hadir+'hr':'-')+'</td>'
       +'<td style="text-align:center;color:red;">'+(alpha>0?alpha+'hr':'-')+'</td>'
       +'<td style="text-align:right;">'+fRp(umKotor)+'</td>'
@@ -6043,6 +6560,8 @@ function printLaporanUM() {
       +'<td style="text-align:right;font-weight:700;color:#c8860a;">'+fRp(total)+'</td>'
       +'</tr>';
   }).join('');
+
+  if(!rows) rows = '<tr><td colspan="11" style="text-align:center;color:#888;padding:16px;">Tidak ada data untuk periode ini</td></tr>';
 
   var html = pdfHeader('LAPORAN UM + LEMBUR MINGGUAN','Periode: '+label,'Total Karyawan: '+list.length)
     +'<div class="pdf-stats">'
