@@ -14,8 +14,8 @@
 // ============================================================
 // SUPABASE CONFIG — Isi dengan kredensial project kamu
 // ============================================================
-var SUPABASE_URL  = '';   // contoh: https://xxxx.supabase.co
-var SUPABASE_KEY  = '';   // anon/public key dari Settings > API
+var SUPABASE_URL  = 'https://fbrygeozyvgstsmjbmwv.supabase.co';
+var SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZicnlnZW96eXZnc3RzbWpibXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNTgwNjAsImV4cCI6MjA5MjkzNDA2MH0.c0sLrLV4-IK5VEE8_o4OCFHcDcN_UiqK-rupftFFbE8';
 // ============================================================
 var _sb = null;
 var _sbReady = false;
@@ -24,9 +24,8 @@ var _syncPending = false;
 var _lastSyncTs = null;
 
 function initSupabase() {
-  if(!SUPABASE_URL || !SUPABASE_KEY || SUPABASE_URL.includes('xxxx')) {
+  if(!SUPABASE_URL || !SUPABASE_KEY) {
     console.warn('[Supabase] Kredensial belum diisi. Mode offline.');
-    showSbSetupBanner();
     return;
   }
   try {
