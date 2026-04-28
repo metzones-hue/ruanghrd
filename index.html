@@ -1035,6 +1035,7 @@ select option { background:var(--dark3); }
         </div>
         <button class="btn btn-gold" onclick="openModal('modal-lembur')">＋ Ajukan Lembur</button>
           <button class="btn btn-green" onclick="approveSemuaLembur()" style="white-space:nowrap;">&#x2705; Approve Semua Pending</button>
+          <button class="btn btn-outline" onclick="recalculateLemburDariAbsensi()" style="border-color:#9B59B6;color:#9B59B6;white-space:nowrap;" title="Scan ulang semua absensi dan buat lembur yang belum ada">🔄 Recalculate Lembur</button>
       </div>
       <div class="section">
         <div class="table-wrap">
@@ -2196,15 +2197,12 @@ select option { background:var(--dark3); }
     <div class="modal-title">🏖️ Pengajuan Cuti / Izin</div>
     <div class="form-grid">
       <div class="form-group"><label>Karyawan</label>
-      <div class="karyawan-picker" id="picker-c-karyawan">
-        <input type="text" id="c-karyawan-search" placeholder="🔍 Cari nama karyawan..."
-               onInput="filterKaryawanPicker('c-karyawan')"
-               onFocus="openKaryawanPicker('c-karyawan')"
-               autocomplete="off">
-        <input type="hidden" id="c-karyawan" value="">
-        <div class="karyawan-dropdown" id="dd-c-karyawan"></div>
+        <input type="text" id="c-karyawan-search" placeholder="🔍 Ketik nama untuk filter..."
+               oninput="filterCutiKaryawan()" autocomplete="off" style="margin-bottom:4px;">
+        <select id="c-karyawan" onchange="cekSisaCuti()"
+                style="width:100%;height:auto;min-height:36px;background:var(--dark3);color:var(--white);border:1px solid var(--dark4);border-radius:8px;padding:6px 8px;">
+        </select>
       </div>
-    </div>
       <div class="form-group"><label>Jenis</label>
         <select id="c-jenis">
           <option value="Cuti Tahunan">Cuti Tahunan</option>
@@ -2232,14 +2230,11 @@ select option { background:var(--dark3); }
     <div class="modal-title">💳 Ajukan Kas Bon</div>
     <div class="form-grid">
       <div class="form-group full"><label>Karyawan</label>
-      <div class="karyawan-picker" id="picker-kb-karyawan">
-        <input type="text" id="kb-karyawan-search" placeholder="🔍 Cari nama karyawan..."
-               onInput="filterKaryawanPicker('kb-karyawan')"
-               onFocus="openKaryawanPicker('kb-karyawan')"
-               autocomplete="off">
-        <input type="hidden" id="kb-karyawan" value="">
-        <div class="karyawan-dropdown" id="dd-kb-karyawan"></div>
-      </div>
+      <input type="text" id="kb-karyawan-search" placeholder="🔍 Ketik nama untuk filter..."
+               oninput="filterKasbonKaryawan()" autocomplete="off" style="margin-bottom:4px;">
+        <select id="kb-karyawan" onchange="onKasbonKaryawanChange()"
+                style="width:100%;background:var(--dark3);color:var(--white);border:1px solid var(--dark4);border-radius:8px;padding:6px 8px;">
+        </select>
     </div>
       <div class="form-group"><label>Tanggal Pengajuan</label><input id="kb-tanggal" type="date"></div>
       <div class="form-group"><label>Jumlah Kas Bon (Rp)</label><input id="kb-jumlah" type="number" placeholder="Contoh: 500000"></div>
@@ -2300,6 +2295,11 @@ select option { background:var(--dark3); }
 // Password hash utility - harus di atas USERS
 var SALT = 'RuangPrint2025!';
 function hashPass(p) { return btoa(unescape(encodeURIComponent(p + SALT))); }
+var _origPush = Array.prototype.push; // must be before patchDb
+var dpYear = new Date().getFullYear();
+var dpMonth = new Date().getMonth();
+var dpSelectedDate = null;
+var umSelectedJumat = null;
 
 // ============ LOGIN SYSTEM ============
 var USERS = {
@@ -2974,7 +2974,7 @@ function updateFilterLemburOptions(){
 
 function renderLembur(){
   const tb=document.getElementById('tbody-lembur');
-  const bulan=document.getElementById('filterLemburBulan').value||new Date().toISOString().slice(0,7);
+  const _nowLB=new Date(); const bulan=document.getElementById('filterLemburBulan').value||(_nowLB.getFullYear()+'-'+String(_nowLB.getMonth()+1).padStart(2,'0'));
   const namaFilter=document.getElementById('filterLemburNama').value.toLowerCase();
   const divisiFilter=document.getElementById('filterLemburDivisi').value;
 
@@ -3029,6 +3029,121 @@ function renderLembur(){
       +'</td>'
       +'</tr>';
   }).join('');
+}
+
+function recalculateLemburDariAbsensi() {
+  var _nowLB2=new Date(); var bulan = document.getElementById('filterLemburBulan').value || (_nowLB2.getFullYear()+'-'+String(_nowLB2.getMonth()+1).padStart(2,'0'));
+  var divisiFilter = document.getElementById('filterLemburDivisi').value || '';
+
+  if(!confirm('🔄 Scan ulang absensi ' + bulan + (divisiFilter?' ('+divisiFilter+')':' (semua divisi)') + ' dan buat lembur yang belum ada?\n\nLembur yang sudah ada tidak akan ditimpa.')) return;
+
+  var absensiList = db.absensi.filter(function(a) {
+    if(!(a.tanggal||'').startsWith(bulan)) return false;
+    if(divisiFilter) {
+      var k = db.karyawan.find(function(x){ return x.id===a.karyawanId; });
+      if(!k || k.divisi !== divisiFilter) return false;
+    }
+    return a.status === 'Hadir' && a.masuk && a.keluar;
+  });
+
+  if(!absensiList.length) {
+    showAlert('⚠️ Tidak ada data absensi Hadir dengan jam masuk/keluar di periode ini.', '#E67E22');
+    return;
+  }
+
+  var dibuat = 0, dilewati = 0, minggu = 0;
+  var toMin = function(t) {
+    if(!t) return 0;
+    var p = t.split(':'); return parseInt(p[0])*60 + parseInt(p[1]);
+  };
+
+  // Suspend cloud merge selama proses
+  _localDirtyUntil = Date.now() + 15000;
+
+  absensiList.forEach(function(a) {
+    var k = db.karyawan.find(function(x){ return x.id===a.karyawanId; });
+    if(!k) { dilewati++; return; }
+
+    var timeIn = a.masuk, timeOut = a.keluar;
+    var tglDate = new Date(a.tanggal);
+    var isMinggu = tglDate.getDay() === 0;
+
+    // Auto-detect shift
+    var threshold = ATURAN.thresholdShift2 || '10:30';
+    var isShift2 = toMin(timeIn) >= toMin(threshold);
+    var jamKeluar = isShift2
+      ? (ATURAN.jamKeluarShift2 || '21:00')
+      : (ATURAN.jamKeluarShift1 || ATURAN.jamKeluar || '17:30');
+
+    // Hanya buat lembur kalau checkout melebihi jam standar
+    if(toMin(timeOut) <= toMin(jamKeluar)) { dilewati++; return; }
+
+    // Skip kalau sudah ada lembur di tanggal ini
+    var existing = db.lembur.find(function(l) {
+      return l.karyawanId===a.karyawanId && l.tanggal===a.tanggal;
+    });
+    if(existing) { dilewati++; return; }
+
+    var mulaiLembur = isMinggu ? timeIn : jamKeluar;
+    var jamTotal = Math.round((toMin(timeOut) - toMin(mulaiLembur)) / 60 * 10) / 10;
+    if(jamTotal <= 0) { dilewati++; return; }
+
+    var melebihi = toMin(timeOut) >= toMin(ATURAN.batasMalam || '22:30');
+    var bonusMalam = (melebihi && k.lemburMalamAktif !== 'tidak') ? (ATURAN.bonusMalam || 15000) : 0;
+    var bonusUM = isMinggu && jamTotal > 8 ? (ATURAN.umPerHari || 40000) : 0;
+    var upah = jamTotal * (k.upahLembur || 5000);
+    if(isMinggu) upah *= 2;
+    var total = Math.round(upah + bonusMalam + bonusUM);
+
+    Array.prototype.push.call(db.lembur, {
+      id: nextId(db.lembur),
+      tanggal: a.tanggal,
+      karyawanId: a.karyawanId,
+      nama: k.nama,
+      divisi: k.divisi,
+      mulai: mulaiLembur,
+      selesai: timeOut,
+      jamTotal: jamTotal,
+      upahPerJam: k.upahLembur || 5000,
+      isMinggu: isMinggu,
+      melebihi2230: melebihi,
+      bonusMalam: bonusMalam,
+      bonusUM: bonusUM,
+      totalUpah: total,
+      alasan: 'Recalculate dari absensi',
+      status: 'Pending',
+      autoDetect: true
+    });
+    if(isMinggu) minggu++;
+    dibuat++;
+  });
+
+  // Save setelah semua selesai (1x saja, tidak per entry)
+  if(dibuat > 0) {
+    patchDb();
+    saveToStorage();
+    if(_sbReady) {
+      if(_syncPending) clearTimeout(_syncPending);
+      supabaseSave().then(function(){ _localDirtyUntil = 0; });
+    }
+  } else {
+    _localDirtyUntil = 0;
+  }
+
+  renderLembur();
+
+  var msg = '✅ Recalculate selesai!\n\n'
+    + '📋 Absensi diperiksa: ' + absensiList.length + '\n'
+    + '✅ Lembur dibuat: ' + dibuat + (minggu?' ('+minggu+' Minggu×2)':'') + '\n'
+    + '⏭ Dilewati (sudah ada/tidak lembur): ' + dilewati;
+
+  if(dibuat > 0) {
+    msg += '\n\nKlik "✅ Approve Semua Pending" untuk menyetujui semua lembur baru.';
+    showAlert('✅ ' + dibuat + ' lembur baru dibuat dari absensi!', '#9B59B6');
+  } else {
+    showAlert('ℹ️ Semua lembur sudah ada atau tidak ada overtime terdeteksi.', '#3498DB');
+  }
+  alert(msg);
 }
 
 function resetFilterLembur() {
@@ -3191,7 +3306,7 @@ function getBulanList() {
   const now = new Date();
   for(let i=0; i<6; i++) {
     const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-    list.push({ val: d.toISOString().slice(0,7), label: d.toLocaleDateString('id-ID',{month:'long',year:'numeric'}) });
+    list.push({ val: d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'), label: d.toLocaleDateString('id-ID',{month:'long',year:'numeric'}) });
   }
   return list;
 }
@@ -3360,7 +3475,7 @@ function pdfSlipGaji(kId, periode) {
   const k = db.karyawan.find(x=>x.id===kId);
   if(!k) return;
   const c = hitungGajiKaryawan(k, periode);
-  const periodeLabel = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  const [pY,pM]=periode.split('-'); const periodeLabel=new Date(+pY,+pM-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});
   // Buka print window dengan slip gaji HTML
   const slipEl = document.getElementById('slip-preview');
   // Generate slip dulu via existing generateSlip logic
@@ -3414,7 +3529,7 @@ function buatSlipUM(kId, periodeVal) {
     periodeLabel=fmt(per.mulai)+' s/d '+fmt(per.selesai);
     tanggalBayar=new Date(periodeVal).toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   }else if(periodeVal){
-    periodeLabel=new Date(periodeVal+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+    { const [pY2,pM2]=periodeVal.split('-'); periodeLabel=new Date(+pY2,+pM2-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'}); }
     tanggalBayar='Bersama gaji '+periodeLabel;
   }
   var detailRows='';
@@ -3590,7 +3705,7 @@ function exportExcelUM() {
     const fmtTgl=d=>new Date(d).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
     periodeLabel=`${fmtTgl(mulai)} s/d ${fmtTgl(selesai)}`;
   } else {
-    periodeLabel=new Date(periodeVal+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+    { const [pY2,pM2]=periodeVal.split('-'); periodeLabel=new Date(+pY2,+pM2-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'}); }
   }
 
   const wb = XLSX.utils.book_new();
@@ -3669,7 +3784,8 @@ function updatePeriodeOptions(){
   const now=new Date();
   for(let i=0;i<6;i++){
     const d=new Date(now.getFullYear(),now.getMonth()-i,1);
-    months.push({val:d.toISOString().slice(0,7),label:d.toLocaleDateString('id-ID',{month:'long',year:'numeric'})});
+    const val=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    months.push({val:val,label:d.toLocaleDateString('id-ID',{month:'long',year:'numeric'})});
   }
   ['gajiPeriode','slipPeriode'].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
@@ -3746,7 +3862,7 @@ function generateSlip(){
   const k=db.karyawan.find(x=>x.id===kId);
   if(!k){showAlert('Karyawan tidak ditemukan!','#E74C3C');return;}
   const c=hitungGajiKaryawan(k,periode);
-  const pLabel=new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  const pLabel=(function(p){var s=p.split('-');return new Date(+s[0],+s[1]-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});})(periode);
   const lemburD=db.lembur.filter(l=>l.karyawanId===kId&&l.status==='Disetujui'&&l.tanggal.startsWith(periode));
   const sisa=getSisaCuti(k.id);
 
@@ -3843,7 +3959,7 @@ function printSlipGaji(){
 
 // ============ DETAIL LEMBUR ============
 function showDetailLembur(karyawanId, nama, divisi) {
-  var bulan = document.getElementById('filterLemburBulan').value || new Date().toISOString().slice(0,7);
+  var _nowLB2=new Date(); var bulan = document.getElementById('filterLemburBulan').value || (_nowLB2.getFullYear()+'-'+String(_nowLB2.getMonth()+1).padStart(2,'0'));
   var data  = db.lembur.filter(function(l){ return l.karyawanId==karyawanId && (l.tanggal||'').slice(0,7)===bulan; })
     .sort(function(a,b){ return (a.tanggal||'').localeCompare(b.tanggal||''); });
 
@@ -3860,7 +3976,7 @@ function showDetailLembur(karyawanId, nama, divisi) {
     else if(l.status==='Pending') pending++;
   });
 
-  var periodeLabel = new Date(bulan+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  var periodeLabel = (function(b){var s=b.split('-');return new Date(+s[0],+s[1]-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});})(bulan);
 
   var rows = data.map(function(l){
     var stColor = l.status==='Disetujui'?'#27ae60':l.status==='Pending'?'#e67e22':'#e74c3c';
@@ -4096,11 +4212,11 @@ function exportLaporanCuti() {
     ['No','NPK','Nama','Divisi','Jabatan','Hak Cuti/Tahun','Cuti Terpakai','Sisa Cuti','Detail Tanggal']
   ];
   list.forEach(function(k,i){
-    var cutiK = db.cuti.filter(function(c){return c.karyawanId===k.id&&(c.tanggalMulai||'').startsWith(tahun)&&c.status==='Disetujui';});
-    var terpakai = cutiK.reduce(function(s,c){return s+(+c.jumlahHari||1);},0);
+    var cutiK = db.cuti.filter(function(c){return c.karyawanId===k.id&&((c.tanggalMulai||c.mulai||'')).startsWith(tahun)&&c.status==='Disetujui';});
+    var terpakai = cutiK.reduce(function(s,c){return s+(+c.jumlahHari||+c.hari||1);},0);
     var hak = k.punyaCuti==='ya' ? ATURAN.cutiTahunan : 0;
     var sisa = Math.max(0, hak - terpakai);
-    var detail = cutiK.map(function(c){return (c.tanggalMulai||'')+' ('+(c.jumlahHari||1)+' hr)';}).join(', ');
+    var detail = cutiK.map(function(c){return (c.tanggalMulai||c.mulai||'')+' ('+(c.jumlahHari||c.hari||1)+' hr)';}).join(', ');
     rows.push([i+1, k.npk||'-', k.nama, k.divisi, k.jabatan, hak, terpakai, sisa, detail]);
   });
   var ws = XLSX.utils.aoa_to_sheet(rows);
@@ -4116,8 +4232,8 @@ function printLaporanCuti() {
   var list   = db.karyawan.filter(function(k){return k.status==='Aktif'&&(!divisi||k.divisi===divisi);});
 
   var rows = list.map(function(k,i){
-    var cutiK = db.cuti.filter(function(c){return c.karyawanId===k.id&&(c.tanggalMulai||'').startsWith(tahun)&&c.status==='Disetujui';});
-    var terpakai = cutiK.reduce(function(s,c){return s+(+c.jumlahHari||1);},0);
+    var cutiK = db.cuti.filter(function(c){return c.karyawanId===k.id&&((c.tanggalMulai||c.mulai||'')).startsWith(tahun)&&c.status==='Disetujui';});
+    var terpakai = cutiK.reduce(function(s,c){return s+(+c.jumlahHari||+c.hari||1);},0);
     var hak  = k.punyaCuti==='ya' ? ATURAN.cutiTahunan : 0;
     var sisa = Math.max(0, hak - terpakai);
     var pct  = hak > 0 ? Math.round(terpakai/hak*100) : 0;
@@ -4140,7 +4256,7 @@ function printLaporanCuti() {
   }).join('');
 
   var totalCuti = list.reduce(function(s,k){
-    return s + db.cuti.filter(function(c){return c.karyawanId===k.id&&(c.tanggalMulai||'').startsWith(tahun)&&c.status==='Disetujui';}).reduce(function(ss,c){return ss+(+c.jumlahHari||1);},0);
+    return s + db.cuti.filter(function(c){return c.karyawanId===k.id&&((c.tanggalMulai||c.mulai||'')).startsWith(tahun)&&c.status==='Disetujui';}).reduce(function(ss,c){return ss+(+c.jumlahHari||+c.hari||1);},0);
   },0);
 
   var content = pdfHeader('LAPORAN CUTI KARYAWAN','Tahun: '+tahun+' | Divisi: '+(divisi||'Semua'),'Total: '+list.length+' karyawan')
@@ -4839,10 +4955,12 @@ function renderLaporan() {
   const now = new Date();
   for(let i=0;i<12;i++){
     const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-    bulanList.push({val:d.toISOString().slice(0,7), label:d.toLocaleDateString('id-ID',{month:'long',year:'numeric'})});
+    const dVal = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    bulanList.push({val:dVal, label:d.toLocaleDateString('id-ID',{month:'long',year:'numeric'})});
   }
-  // Isi select periode bulanan - dan paksa pilih bulan ini (April)
-  const periodeSekarang = new Date().toISOString().slice(0,7);
+  // Isi select periode bulanan - dan paksa pilih bulan ini
+  const nowD = new Date();
+  const periodeSekarang = nowD.getFullYear()+'-'+String(nowD.getMonth()+1).padStart(2,'0');
   ['lap-absen-periode','lap-gaji-periode','lap-telat-periode','lap-lembur-periode','lap-um-bulan-periode'].forEach(function(id){
     const el=document.getElementById(id);
     if(el){
@@ -5165,7 +5283,7 @@ function exportLaporanLembur() {
   var statusF = (document.getElementById('lap-lembur-status')?.value)||'';
   var divisiF = (document.getElementById('lap-lembur-divisi')?.value)||'';
   var q = (document.getElementById('lap-lembur-search')?.value||'').toLowerCase();
-  var label = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  var label = (function(p){var s=p.split('-');return new Date(+s[0],+s[1]-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});})(periode);
 
   var data = db.lembur.filter(function(l){ return (l.tanggal||'').startsWith(periode); });
   if(statusF) data = data.filter(function(l){ return l.status===statusF; });
@@ -5192,7 +5310,7 @@ function exportLaporanLembur() {
 
 function printLaporanLembur() {
   var periode = (document.getElementById('lap-lembur-periode')?.value)||new Date().toISOString().slice(0,7);
-  var label = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  var label = (function(p){var s=p.split('-');return new Date(+s[0],+s[1]-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});})(periode);
   var divisiF = (document.getElementById('lap-lembur-divisi')?.value)||'Semua';
   var statusF = (document.getElementById('lap-lembur-status')?.value)||'Semua';
   var tb = document.getElementById('tbody-lap-lembur');
@@ -5278,7 +5396,7 @@ function exportLaporanUMBulanan() {
   if(typeof XLSX==='undefined'){showAlert('\u23F3 Library Excel sedang dimuat, tunggu 3 detik lalu coba lagi...','#E67E22');return;}
   var periode = (document.getElementById('lap-um-bulan-periode')?.value)||new Date().toISOString().slice(0,7);
   var divisiF = (document.getElementById('lap-um-bulan-divisi')?.value)||'';
-  var label = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  var label = (function(p){var s=p.split('-');return new Date(+s[0],+s[1]-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});})(periode);
   var UM_PER_HARI = 40000;
 
   var aktif = db.karyawan.filter(function(k){
@@ -5310,7 +5428,7 @@ function exportLaporanUMBulanan() {
 
 function printLaporanUMBulanan() {
   var periode = (document.getElementById('lap-um-bulan-periode')?.value)||new Date().toISOString().slice(0,7);
-  var label = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  var label = (function(p){var s=p.split('-');return new Date(+s[0],+s[1]-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});})(periode);
   var divisiF = (document.getElementById('lap-um-bulan-divisi')?.value)||'Semua';
   var tb = document.getElementById('tbody-lap-um-bulan');
   if(!tb){showAlert('Data belum tersedia','#E74C3C');return;}
@@ -5361,7 +5479,7 @@ function isiUMPeriodeCepat(jumatStr) {
 function exportLaporanAbsensi() {
   if(typeof XLSX==='undefined'){showAlert('\u23F3 Library Excel sedang dimuat, tunggu 3 detik lalu coba lagi...','#E67E22');return;}
   const periode = document.getElementById('lap-absen-periode').value;
-  const label = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  const label = (function(p){var s=p.split('-');return new Date(+s[0],+s[1]-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});})(periode);
   const wb = XLSX.utils.book_new();
   const rows = [
     ['LAPORAN ABSENSI BULANAN - RUANGPRINT'],
@@ -5392,7 +5510,7 @@ function exportLaporanAbsensi() {
 function exportLaporanGaji() {
   if(typeof XLSX==='undefined'){showAlert('\u23F3 Library Excel sedang dimuat, tunggu 3 detik lalu coba lagi...','#E67E22');return;}
   const periode = document.getElementById('lap-gaji-periode').value;
-  const label = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  const label = (function(p){var s=p.split('-');return new Date(+s[0],+s[1]-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});})(periode);
   const wb = XLSX.utils.book_new();
 
   // Sheet per divisi
@@ -5623,16 +5741,37 @@ function updateStats(){
   var el4=document.getElementById('s-cuti'); if(el4) el4.textContent=db.cuti.filter(c=>c.status==='Pending').length;
 }
 
+function filterKasbonKaryawan() {
+  var q = (document.getElementById('kb-karyawan-search')?.value||'').toLowerCase();
+  var sel = document.getElementById('kb-karyawan');
+  if(!sel) return;
+  var opts = db.karyawan.filter(function(k){ return k.status==='Aktif' && (!q || k.nama.toLowerCase().includes(q) || (k.divisi||'').toLowerCase().includes(q)); });
+  sel.innerHTML = opts.map(function(k){ return '<option value="'+k.id+'">'+k.nama+' ('+( k.divisi||'-')+')</option>'; }).join('');
+  if(typeof onKasbonKaryawanChange==='function') onKasbonKaryawanChange();
+}
+
+function filterCutiKaryawan() {
+  var q = (document.getElementById('c-karyawan-search')?.value||'').toLowerCase();
+  var sel = document.getElementById('c-karyawan');
+  if(!sel) return;
+  var opts = db.karyawan.filter(function(k){ return k.status==='Aktif' && (!q || k.nama.toLowerCase().includes(q) || (k.divisi||'').toLowerCase().includes(q)); });
+  sel.innerHTML = opts.map(function(k){ return '<option value="'+k.id+'">'+k.nama+' ('+( k.divisi||'-')+')</option>'; }).join('');
+}
+
 function updateKaryawanSelects(){
-  ['a-karyawan','l-karyawan','c-karyawan','kb-karyawan'].forEach(id=>{
+  // Populate absensi, lembur, kasbon pickers
+  ['a-karyawan','l-karyawan','kb-karyawan'].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
     el.innerHTML=`<option value="">-- Pilih Karyawan --</option>`+db.karyawan.filter(k=>k.status==='Aktif').map(k=>`<option value="${k.id}">${k.nama} (${k.cabang})</option>`).join('');
   });
+  // Populate cuti & kasbon selects
+  filterCutiKaryawan();
+  filterKasbonKaryawan();
 }
 
 
 // ============ SEARCHABLE KARYAWAN PICKER ============
-var PICKER_IDS = ['a-karyawan','l-karyawan','c-karyawan','kb-karyawan'];
+var PICKER_IDS = ['a-karyawan','l-karyawan'];
 var DIVISI_WARNA = {HO:'#F5A800',DMB:'#2ECC71',CTR:'#3498DB',GDS:'#E74C3C',BKS:'#9B59B6',CKG:'#1ABC9C'};
 
 function buildDropdownItems(searchQ, pickerId) {
@@ -5827,9 +5966,6 @@ var HARI_LIBUR_NASIONAL = [
   '2026-06-16','2026-08-17','2026-12-25',
 ];
 
-var dpYear = new Date().getFullYear();
-var dpMonth = new Date().getMonth();
-var dpSelectedDate = null;
 
 function isHariLibur(dateStr) {
   return HARI_LIBUR_NASIONAL.includes(dateStr);
@@ -5925,7 +6061,6 @@ function selectDPDate(ds) {
   renderUM();
 }
 
-var umSelectedJumat = null;
 
 // Override renderUM untuk pakai umSelectedJumat dari date picker
 var _origRenderUM = renderUM;
@@ -6031,7 +6166,7 @@ function jawabAsisten(q) {
 function buatLaporanPayroll() {
   const periode = document.getElementById('asst-periode')?.value || new Date().toISOString().slice(0,7);
   const divisiFilter = document.getElementById('asst-divisi')?.value || '';
-  const periodeLabel = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  const periodeLabel = (function(p){var s=p.split('-');return new Date(+s[0],+s[1]-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});})(periode);
   let list = db.karyawan.filter(k=>k.status==='Aktif');
   if(divisiFilter) list = list.filter(k=>(k.divisi||'')===divisiFilter);
 
@@ -6144,7 +6279,7 @@ function submitPayroll() {
 function exportPayrollWithSign(namaHRD, jabatan, periode, divisiFilter) {
   if(typeof XLSX==='undefined'){showAlert('\u23F3 Library Excel sedang dimuat, tunggu 3 detik lalu coba lagi...','#E67E22');return;}
 
-  const periodeLabel = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  const periodeLabel = (function(p){var s=p.split('-');return new Date(+s[0],+s[1]-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});})(periode);
   let list = db.karyawan.filter(k=>k.status==='Aktif');
   if(divisiFilter) list = list.filter(k=>(k.divisi||'')===divisiFilter);
 
@@ -6869,7 +7004,7 @@ function pdfFooter(keterangan) {
 // Print Laporan Absensi
 function printLaporanAbsensi() {
   var periode = document.getElementById('lap-absen-periode').value;
-  var label = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  var label = (function(p){var s=p.split('-');return new Date(+s[0],+s[1]-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});})(periode);
   var aktif = db.karyawan.filter(function(k){return k.status==='Aktif';});
 
   var hadir_total=0, alpha_total=0;
@@ -6909,7 +7044,7 @@ function printLaporanAbsensi() {
 // Print Laporan Gaji
 function printLaporanGaji() {
   var periode = document.getElementById('lap-gaji-periode').value;
-  var label = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  var label = (function(p){var s=p.split('-');return new Date(+s[0],+s[1]-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});})(periode);
   var aktif = db.karyawan.filter(function(k){return k.status==='Aktif';});
   var grand=0;
 
@@ -7812,7 +7947,7 @@ function exportTemplateKaryawan() {
 }
 function exportExcelGaji() {
   const periode = document.getElementById('gajiPeriode')?.value || new Date().toISOString().slice(0,7);
-  const periodeLabel = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  const periodeLabel = (function(p){var s=p.split('-');return new Date(+s[0],+s[1]-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});})(periode);
   const wb = XLSX.utils.book_new();
 
   const DIVISI_LIST = [
@@ -8185,7 +8320,6 @@ function resetStorage() {
 }
 
 // Auto-save setiap perubahan data
-var _origPush = Array.prototype.push;
 function patchDb() {
   if(!db.potonganDadakan) db.potonganDadakan = [];
   ['karyawan','absensi','lembur','cuti','kasbon','gaji','potonganDadakan'].forEach(key => {
@@ -8423,7 +8557,7 @@ function showDetailAbsensi(karyawanId, nama, divisi) {
       +'</tr>';
   }).join('');
 
-  var periodeLabel = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  var periodeLabel = (function(p){var s=p.split('-');return new Date(+s[0],+s[1]-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});})(periode);
 
   var content = ''
     +'<div style="display:flex;gap:12px;margin-bottom:14px;">'
