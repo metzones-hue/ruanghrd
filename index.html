@@ -9,6 +9,164 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
 /* Offline fallback: Bebas Neue → Impact, Syne → Georgia, DM Sans → Arial */
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ============================================================
+// SUPABASE CONFIG — Isi dengan kredensial project kamu
+// ============================================================
+var SUPABASE_URL  = '';   // contoh: https://xxxx.supabase.co
+var SUPABASE_KEY  = '';   // anon/public key dari Settings > API
+// ============================================================
+var _sb = null;
+var _sbReady = false;
+var _sbChannel = null;
+var _syncPending = false;
+var _lastSyncTs = null;
+
+function initSupabase() {
+  if(!SUPABASE_URL || !SUPABASE_KEY || SUPABASE_URL.includes('xxxx')) {
+    console.warn('[Supabase] Kredensial belum diisi. Mode offline.');
+    showSbSetupBanner();
+    return;
+  }
+  try {
+    _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    _sbReady = true;
+    console.log('[Supabase] Client siap.');
+    supabaseSubscribeRealtime();
+  } catch(e) {
+    console.error('[Supabase] Gagal init:', e);
+  }
+}
+
+function showSbSetupBanner() {
+  var el = document.getElementById('sb-setup-banner');
+  if(el) el.style.display = 'flex';
+}
+function hideSbSetupBanner() {
+  var el = document.getElementById('sb-setup-banner');
+  if(el) el.style.display = 'none';
+}
+
+async function supabaseSave() {
+  if(!_sbReady) return;
+  try {
+    var payload = {
+      id: 'main',
+      db_json: JSON.stringify(db),
+      aturan_json: JSON.stringify(ATURAN),
+      updated_at: new Date().toISOString()
+    };
+    var { error } = await _sb.from('ruanghrd_sync').upsert(payload, { onConflict: 'id' });
+    if(error) { console.error('[Supabase] Save error:', error.message); return; }
+    _lastSyncTs = payload.updated_at;
+    updateSbStatus('synced');
+    console.log('[Supabase] Saved ok');
+  } catch(e) {
+    console.error('[Supabase] Save exception:', e);
+    updateSbStatus('error');
+  }
+}
+
+async function supabaseLoad(callback) {
+  if(!_sbReady) { callback(false); return; }
+  try {
+    updateSbStatus('loading');
+    var { data, error } = await _sb.from('ruanghrd_sync').select('*').eq('id','main').single();
+    if(error || !data) { callback(false); return; }
+    mergeDbFromCloud(data);
+    _lastSyncTs = data.updated_at;
+    updateSbStatus('synced');
+    callback(true, data.updated_at);
+  } catch(e) {
+    console.error('[Supabase] Load exception:', e);
+    callback(false);
+  }
+}
+
+function mergeDbFromCloud(data) {
+  try {
+    if(data.db_json) {
+      var saved = JSON.parse(data.db_json);
+      if(saved.karyawan && saved.karyawan.length > 0) db.karyawan = saved.karyawan;
+      if(saved.absensi)  db.absensi  = saved.absensi;
+      if(saved.lembur)   db.lembur   = saved.lembur;
+      if(saved.cuti)     db.cuti     = saved.cuti;
+      if(saved.kasbon)   db.kasbon   = saved.kasbon;
+      if(saved.gaji)     db.gaji     = saved.gaji;
+      if(saved.potonganDadakan) db.potonganDadakan = saved.potonganDadakan;
+      if(saved.umBayar)  db.umBayar  = saved.umBayar;
+    }
+    if(data.aturan_json) {
+      try { Object.assign(ATURAN, JSON.parse(data.aturan_json)); syncAturanConst(); } catch(e){}
+    }
+  } catch(e) { console.error('[Supabase] mergeDbFromCloud error:', e); }
+}
+
+function supabaseSubscribeRealtime() {
+  if(!_sbReady || _sbChannel) return;
+  _sbChannel = _sb
+    .channel('ruanghrd-sync')
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'ruanghrd_sync',
+      filter: 'id=eq.main'
+    }, function(payload) {
+      if(!payload.new) return;
+      if(payload.new.updated_at === _lastSyncTs) return; // perubahan dari diri sendiri
+      console.log('[Supabase] Realtime update dari device lain');
+      mergeDbFromCloud(payload.new);
+      patchDb();
+      updatePeriodeOptions();
+      updateUMMingguOptions();
+      updateKaryawanSelects();
+      renderDashboard();
+      showAlert('🔄 Data disinkron dari perangkat lain');
+      updateSbStatus('synced');
+      _lastSyncTs = payload.new.updated_at;
+    })
+    .subscribe();
+  console.log('[Supabase] Realtime subscribed.');
+}
+
+function updateSbStatus(state) {
+  var el = document.getElementById('sb-status');
+  if(!el) return;
+  var states = {
+    synced:  { icon:'☁️', text:'Tersimpan di cloud', color:'var(--green)' },
+    loading: { icon:'⏳', text:'Sinkronisasi...', color:'var(--gold)' },
+    error:   { icon:'⚠️', text:'Gagal sync', color:'var(--red)' },
+    offline: { icon:'💾', text:'Mode lokal', color:'var(--gray)' }
+  };
+  var s = states[state] || states.offline;
+  el.innerHTML = s.icon + ' ' + s.text;
+  el.style.color = s.color;
+}
+
+function saveSbConfig() {
+  var url = document.getElementById('sb-url-input').value.trim();
+  var key = document.getElementById('sb-key-input').value.trim();
+  if(!url || !key) { alert('URL dan Key wajib diisi!'); return; }
+  SUPABASE_URL = url;
+  SUPABASE_KEY = key;
+  localStorage.setItem('ruanghrd_sb_url', url);
+  localStorage.setItem('ruanghrd_sb_key', key);
+  hideSbSetupBanner();
+  initSupabase();
+  setTimeout(function(){
+    supabaseLoad(function(ok){
+      patchDb();
+      updatePeriodeOptions();
+      updateUMMingguOptions();
+      updateKaryawanSelects();
+      renderDashboard();
+      if(ok) showAlert('✅ Terhubung ke Supabase! Data disinkron.');
+      else { supabaseSave(); showAlert('✅ Terhubung! Data lokal dikirim ke cloud.'); }
+    });
+  }, 500);
+}
+</script>
 <script>
 function fmt(n){return n==null?0:n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,".");}
 
@@ -588,9 +746,10 @@ select option { background:var(--dark3); }
     <div class="topbar-right">
       <div class="date-badge" id="topDate"></div>
       <span id="storage-status" style="font-size:11px;color:var(--gray);"></span>
+      <span id="sb-status" style="font-size:11px;color:var(--gray);"></span>
       <span id="role-badge-display" class="role-badge"></span>
       <span id="user-name-display" style="font-size:12px;color:var(--gray-light);"></span>
-      <button onclick="saveToStorage();updateStorageStatus();showAlert('✅ Tersimpan di browser!')"
+      <button onclick="saveToStorage();updateStorageStatus();supabaseSave();showAlert('✅ Tersimpan!')"
               class="btn btn-outline btn-sm" title="Simpan ke memori browser">
         💾 Simpan
       </button>
@@ -7778,6 +7937,11 @@ function saveToStorage() {
         if(el) { el.textContent = '\u26A0 Gagal simpan!'; el.style.color='var(--red)'; }
       }
     });
+  // Sync ke Supabase cloud
+  if(_sbReady) {
+    if(_syncPending) clearTimeout(_syncPending);
+    _syncPending = setTimeout(function(){ supabaseSave(); _syncPending=null; }, 800);
+  }
   return true;
 }
 
@@ -7908,6 +8072,14 @@ if(localStorage.getItem('ruanghrd_version') !== APP_VERSION) {
 loadAturanFromStorage();
 loadPasswordsFromStorage();
 
+// Load kredensial Supabase dari localStorage (jika sudah pernah diisi)
+(function(){
+  var savedUrl = localStorage.getItem('ruanghrd_sb_url');
+  var savedKey = localStorage.getItem('ruanghrd_sb_key');
+  if(savedUrl) SUPABASE_URL = savedUrl;
+  if(savedKey) SUPABASE_KEY = savedKey;
+})();
+
 // Coba load dari IndexedDB dulu (async), fallback ke localStorage
 loadFromIDB(function(loaded, ts) {
   if(loaded) {
@@ -7932,6 +8104,25 @@ loadFromIDB(function(loaded, ts) {
     if(hadData) console.log('Data loaded from localStorage');
   }
   setInterval(function(){ saveToStorage(); }, 60000); // auto-save tiap 1 menit
+
+  // Setelah local load, inisialisasi Supabase dan load dari cloud
+  initSupabase();
+  if(_sbReady) {
+    supabaseLoad(function(ok, ts2) {
+      if(ok) {
+        patchDb();
+        updatePeriodeOptions();
+        updateUMMingguOptions();
+        updateKaryawanSelects();
+        renderDashboard();
+        console.log('[Supabase] Data loaded from cloud, ts:', ts2);
+      } else {
+        // Cloud kosong atau error → push data lokal ke cloud
+        supabaseSave();
+        console.log('[Supabase] Cloud empty, pushed local data.');
+      }
+    });
+  }
 });
 
 // Langsung patch dan render dengan data default dulu (sementara IDB loading)
@@ -8135,5 +8326,43 @@ function showDetailAbsensi(karyawanId, nama, divisi) {
   m.classList.add('open');
 }
 </script>
+
+<!-- ===== SUPABASE SETUP BANNER ===== -->
+<div id="sb-setup-banner" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9998;align-items:center;justify-content:center;">
+  <div style="background:var(--dark2);border:1px solid var(--gold);border-radius:16px;padding:32px;width:520px;max-width:95vw;">
+    <div style="font-size:28px;margin-bottom:6px;">&#9729;&#65039; Setup Supabase</div>
+    <div style="font-size:14px;color:var(--gold);font-weight:700;margin-bottom:4px;">Hubungkan ke database cloud agar data sinkron di semua device</div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:20px;line-height:1.7;">
+      Ikuti langkah berikut:<br>
+      1. Buka <strong style="color:var(--white);">supabase.com</strong> &rarr; Sign Up (gratis)<br>
+      2. Buat project baru, pilih region <strong style="color:var(--white);">Southeast Asia</strong><br>
+      3. Buka <strong style="color:var(--white);">SQL Editor</strong> dan jalankan SQL di bawah<br>
+      4. Buka <strong style="color:var(--white);">Settings &rarr; API</strong>, copy URL &amp; anon key
+    </div>
+    <div style="background:var(--dark3);border-radius:8px;padding:12px;font-size:11px;color:#aaa;font-family:monospace;margin-bottom:16px;line-height:1.8;white-space:pre-wrap;">CREATE TABLE ruanghrd_sync (
+  id TEXT PRIMARY KEY,
+  db_json TEXT,
+  aturan_json TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE ruanghrd_sync ENABLE ROW LEVEL SECURITY;
+CREATE POLICY allow_all ON ruanghrd_sync FOR ALL USING (true) WITH CHECK (true);</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+      <div>
+        <label style="font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Project URL</label>
+        <input id="sb-url-input" type="text" placeholder="https://xxxxxxxxxxxx.supabase.co" style="margin-top:4px;">
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Anon / Public Key</label>
+        <input id="sb-key-input" type="text" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." style="margin-top:4px;">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-gold" style="flex:1;" onclick="saveSbConfig()">&#9729;&#65039; Hubungkan Sekarang</button>
+      <button class="btn btn-outline" onclick="hideSbSetupBanner();updateSbStatus('offline')">Lewati (mode lokal)</button>
+    </div>
+    <div style="font-size:11px;color:var(--gray);margin-top:12px;text-align:center;">Data aman &mdash; Supabase terenkripsi &amp; gratis s/d 500MB</div>
+  </div>
+</div>
 </body>
 </html>
