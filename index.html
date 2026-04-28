@@ -22,6 +22,7 @@ var _sbReady = false;
 var _sbChannel = null;
 var _syncPending = false;
 var _lastSyncTs = null;
+var _localDirtyUntil = 0; // timestamp - ignore cloud merge until this time
 
 function initSupabase() {
   if(!SUPABASE_URL || !SUPABASE_KEY) {
@@ -85,6 +86,11 @@ async function supabaseLoad(callback) {
 
 function mergeDbFromCloud(data) {
   try {
+    // Jangan timpa data lokal yang baru saja diubah (cegah race condition)
+    if(Date.now() < _localDirtyUntil) {
+      console.log('[Supabase] Skip cloud merge - local data is dirty, waiting...');
+      return;
+    }
     if(data.db_json) {
       var saved = JSON.parse(data.db_json);
       if(saved.karyawan && saved.karyawan.length > 0) db.karyawan = saved.karyawan;
@@ -169,23 +175,24 @@ function saveSbConfig() {
 <script>
 function fmt(n){return n==null?0:n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,".");}
 
-// SheetJS loader - load dari CDN (butuh internet untuk Export Excel)
+// SheetJS loader - multiple CDN fallbacks
 (function(){
-  if(typeof XLSX !== 'undefined') return; // sudah loaded
+  if(typeof XLSX !== 'undefined') return;
   var sources = [
+    'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
     'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
-    'xlsx.full.min.js' // file lokal (opsional)
+    'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
   ];
-  var loaded = false;
-  sources.forEach(function(src) {
-    if(loaded) return;
+  function tryLoad(i){
+    if(i >= sources.length) return;
     var s = document.createElement('script');
-    s.src = src;
-    s.async = false;
-    s.onload = function(){ loaded = true; };
+    s.src = sources[i];
+    s.onload = function(){ console.log('[XLSX] Loaded from: '+sources[i]); };
+    s.onerror = function(){ tryLoad(i+1); };
     document.head.appendChild(s);
-  });
+  }
+  tryLoad(0);
 })();
 </script>
 <style>
@@ -981,6 +988,14 @@ select option { background:var(--dark3); }
         </div>
         <div class="flex gap-2">
           <input type="file" id="importAbsenInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importAbsensiMesin(this)">
+          <button class="btn btn-outline" onclick="exportTemplateAbsensi('bulanan')"
+                  style="border-color:var(--green);color:var(--green);" title="Download template absensi bulanan untuk HO">
+            📥 Template Bulanan
+          </button>
+          <button class="btn btn-outline" onclick="exportTemplateAbsensi('mingguan')"
+                  style="border-color:#9B59B6;color:#9B59B6;" title="Download template absensi mingguan untuk cabang (Jumat–Kamis)">
+            📥 Template Mingguan
+          </button>
           <button class="btn btn-outline" onclick="document.getElementById('importAbsenInput').click()" 
                   style="border-color:var(--blue);color:var(--blue);" title="Import dari mesin absen Solution X107">
             🖥️ Import Mesin Absen
@@ -2283,8 +2298,30 @@ select option { background:var(--dark3); }
 <script>
 // ============ KONSTANTA ============
 // Password hash utility - harus di atas USERS
-const SALT = 'RuangPrint2025!';
+var SALT = 'RuangPrint2025!';
 function hashPass(p) { return btoa(unescape(encodeURIComponent(p + SALT))); }
+
+// ============ LOGIN SYSTEM ============
+var USERS = {
+  staff: {
+    passHash: hashPass('hrd123'),
+    nama: 'Staff HRD',
+    role: 'staff',
+    akses: ['dashboard','absensi','lembur','um'],  // halaman yang boleh diakses
+    label: 'Staff HRD',
+    warna: 'staff'
+  },
+  kepala: {
+    passHash: hashPass('kepala456'),
+    nama: 'Kepala HRD',
+    role: 'kepala',
+    akses: ['dashboard','karyawan','absensi','lembur','um','kasbon','gaji','slip','cuti','laporan','offboarding','assistant','settings'],
+    label: 'Kepala HRD',
+    warna: 'kepala'
+  }
+};
+
+var currentUser = null;
 
 // Aturan dinamis - bisa diubah dari halaman Pengaturan
 var ATURAN = {
@@ -2319,7 +2356,7 @@ var BONUS_MALAM        = ATURAN.bonusMalam;
 var CUTI_TAHUNAN       = ATURAN.cutiTahunan;
 var POTONGAN_PER_MENIT = ATURAN.potonganPerMenit;
 var INSENTIF_KERAJINAN = ATURAN.insentifKerajinan;
-const HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+var HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 
 function syncAturanConst() {
   UM_PER_HARI        = ATURAN.umPerHari;
@@ -2330,7 +2367,7 @@ function syncAturanConst() {
 }
 
 // ============ DATA ============
-let db = {
+var db = {
   karyawan: [
     {id:1,npk:'201805005',nama:'Mesinta',jabatan:'FA',divisi:'HO',cabang:'Head Office',hp:'089503113488',email:'',gaji:5200000,tunjangan:250000,bpjs:50000,upahLembur:7000,masuk:'2018-05-22',status:'Aktif',punyaCuti:'ya',umMode:'bulanan',shift:1},
     {id:2,npk:'202003012',nama:'Chair Rusfi',jabatan:'Markom',divisi:'HO',cabang:'Head Office',hp:'081311812201',email:'',gaji:4810000,tunjangan:250000,bpjs:48000,upahLembur:7000,masuk:'2020-02-03',status:'Aktif',punyaCuti:'ya',umMode:'bulanan',shift:1},
@@ -2530,8 +2567,8 @@ function hitungGajiKaryawan(k, periode) {
     for(let d=1; d<=lastDay; d++){ if(new Date(y,m-1,d).getDay()!==0) cnt++; }
     return cnt;
   })(periode);
-  const hariUM = (k.umMode==='bulanan') ? (absK.length > 0 ? hariHadir : hariKerjaBulanIni) : 0;
-  const uangMakan = hariUM * UM_PER_HARI;
+  // UM: bulanan = fixed 960rb (sudah dipotong dari gaji pokok), mingguan = 0 di gaji (dibayar terpisah)
+  const uangMakan = (k.umMode==='bulanan') ? (ATURAN.umCabangBulanan || 960000) : 0;
   const totalLembur = db.lembur.filter(l=>l.karyawanId===k.id&&l.status==='Disetujui'&&l.tanggal.startsWith(periode)).reduce((s,l)=>s+l.totalUpah,0);
   // Potongan keterlambatan: dari field menit di absensi
   const totalMenitTelat = absK.filter(a=>a.menitTelat>0).reduce((s,a)=>s+(a.menitTelat||0),0);
@@ -3474,7 +3511,7 @@ function cetakSemuaSlipUM(){
 }
 
 function downloadSlipUMExcel(kId,periodeVal){
-  if(typeof XLSX==='undefined'){showAlert('Library Excel belum dimuat','#E74C3C');return;}
+  if(typeof XLSX==='undefined'){showAlert('\u23F3 Library Excel sedang dimuat, tunggu 3 detik lalu coba lagi...','#E67E22');return;}
   var k=db.karyawan.find(function(x){return x.id===kId;});
   if(!k) return;
   var hadir=0,alpha=0,umDiterima=0;
@@ -3742,7 +3779,7 @@ function generateSlip(){
         <tr><td class="plus">Gaji Pokok</td><td>&mdash;</td><td style="text-align:right">${fRp(c.gaji)}</td></tr>
         <tr><td class="plus">Tunjangan Jabatan</td><td>Tetap bulanan</td><td style="text-align:right">${fRp(c.tunjangan)}</td></tr>
         <tr><td class="${c.insentif?'plus':'minus'}">Insentif Kerajinan</td><td>${c.insentif?'Hadir penuh':'Ada alpha'}</td><td style="text-align:right">${fRp(c.insentif)}</td></tr>
-        ${k.umMode==='bulanan'?`<tr><td class="plus">Uang Makan</td><td>${c.hariHadir} hari &times; Rp40.000</td><td style="text-align:right">${fRp(c.uangMakan)}</td></tr>`:`<tr><td style="color:#888">Uang Makan</td><td style="color:#888">Dibayar mingguan terpisah</td><td style="text-align:right;color:#888">&mdash;</td></tr>`}
+        ${k.umMode==='bulanan'?`<tr><td class="plus">Uang Makan</td><td>Bulanan (per bulan)</td><td style="text-align:right">${fRp(c.uangMakan)}</td></tr>`:`<tr><td style="color:#888">Uang Makan</td><td style="color:#888">Dibayar mingguan terpisah</td><td style="text-align:right;color:#888">&mdash;</td></tr>`}
         ${lemburRows}
         <tr><td class="minus">BPJS</td><td>Potongan karyawan</td><td style="text-align:right;color:#e74c3c;">(${fRp(c.bpjs)})</td></tr>
         ${c.potonganTelat>0?`<tr><td class="minus">Potongan Telat</td><td>${c.totalMenitTelat} menit &times; Rp1.000</td><td style="text-align:right;color:#e74c3c;">(${fRp(c.potonganTelat)})</td></tr>`:''}
@@ -4048,7 +4085,7 @@ function getLapDiv(elId) {
 }
 
 function exportLaporanCuti() {
-  if(typeof XLSX==='undefined'){showAlert('Library Excel belum dimuat','#E74C3C');return;}
+  if(typeof XLSX==='undefined'){showAlert('\u23F3 Library Excel sedang dimuat, tunggu 3 detik lalu coba lagi...','#E67E22');return;}
   var tahun  = document.getElementById('lap-cuti-tahun').value;
   var divisi = getLapDiv('lap-cuti-divisi');
   var list   = db.karyawan.filter(function(k){return k.status==='Aktif'&&(!divisi||k.divisi===divisi);});
@@ -4235,11 +4272,135 @@ function uploadKTPEdit(kId, input) {
 
 
 // ============ EXPORT TEMPLATE ABSENSI ============
-function exportTemplateAbsensi() {
+function exportTemplateAbsensi(mode) {
   if(typeof XLSX === 'undefined') {
-    showAlert('\u26A0 Library Excel belum dimuat. Pastikan ada koneksi internet!', '#E74C3C');
+    showAlert('\u26A0 Library Excel sedang dimuat, coba lagi dalam 3 detik...', '#E67E22');
+    setTimeout(function(){ exportTemplateAbsensi(mode); }, 3000);
     return;
   }
+
+  var isMinggu = mode === 'mingguan';
+  var now = new Date();
+
+  // Filter karyawan sesuai mode
+  var aktif = db.karyawan.filter(function(k){
+    return k.status === 'Aktif' && (isMinggu ? k.umMode === 'minggu' : k.umMode === 'bulanan');
+  });
+
+  var wb = XLSX.utils.book_new();
+
+  if(isMinggu) {
+    // ===== MINGGUAN: periode Jumat–Kamis =====
+    // Hitung periode Jumat–Kamis terdekat
+    var dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+    // Cari Jumat lalu
+    var diffToFri = (dayOfWeek >= 5) ? (dayOfWeek - 5) : (dayOfWeek + 2);
+    var jumat = new Date(now); jumat.setDate(now.getDate() - diffToFri);
+    var kamis = new Date(jumat); kamis.setDate(jumat.getDate() + 6);
+
+    var rows = [
+      ['TEMPLATE ABSENSI MINGGUAN - RUANGPRINT (Cabang)'],
+      ['Periode: ' + jumat.toLocaleDateString('id-ID') + ' (Jumat) s/d ' + kamis.toLocaleDateString('id-ID') + ' (Kamis)'],
+      ['S1: 08:30-17:30 | S2: 12:00-21:00 | Lembur = checkout > jam standar | Import: Absensi → Import Mesin Absen'],
+      ['Tanggal', 'Nama', 'Divisi', 'Check In', 'Check Out', 'Menit Telat', 'Lembur Menit', 'Status', 'Keterangan'],
+    ];
+
+    // Generate baris untuk setiap karyawan per hari dalam periode
+    for(var d = new Date(jumat); d <= kamis; d.setDate(d.getDate()+1)) {
+      var tgl = d.toISOString().slice(0,10);
+      var isSun = d.getDay() === 0;
+      aktif.forEach(function(k){
+        if(isSun) return; // Skip Minggu
+        var ci = k.shift === 2 ? '12:00' : '08:30';
+        var co = k.shift === 2 ? '21:00' : '17:30';
+        rows.push([tgl, k.nama, k.divisi||'', ci, co, 0, 0, 'Hadir', '']);
+      });
+    }
+
+    var ws1 = XLSX.utils.aoa_to_sheet(rows);
+    ws1['!cols'] = [{wch:14},{wch:30},{wch:8},{wch:10},{wch:10},{wch:12},{wch:14},{wch:10},{wch:25}];
+    ws1['!freeze'] = {xSplit:0, ySplit:4};
+    XLSX.utils.book_append_sheet(wb, ws1, 'Absensi Mingguan');
+
+    var periodeLabel = jumat.toLocaleDateString('id-ID',{day:'2-digit',month:'short'}).replace(' ','-') +
+                       '_sd_' + kamis.toLocaleDateString('id-ID',{day:'2-digit',month:'short'}).replace(' ','-');
+    var fileName = 'Template_Absensi_Mingguan_' + periodeLabel + '.xlsx';
+
+  } else {
+    // ===== BULANAN: per bulan =====
+    var tglStr = now.toISOString().slice(0,7); // YYYY-MM
+    var daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+    var bulanLabel = now.toLocaleDateString('id-ID',{month:'long',year:'numeric'}).replace(' ','-');
+
+    var rows = [
+      ['TEMPLATE ABSENSI HARIAN - RUANGPRINT'],
+      ['S1: 08:30-17:30  |  S2: 12:00-21:00  |  Lembur = checkout > jam standar  |  Import: Absensi -> Import Mesin Absen'],
+      ['Tanggal', 'Nama', 'Divisi', 'Check In', 'Check Out', 'Menit Telat', 'Lembur Menit', 'Status', 'Keterangan'],
+    ];
+
+    aktif.forEach(function(k) {
+      for(var d = 1; d <= daysInMonth; d++) {
+        var tgl = tglStr + '-' + String(d).padStart(2,'0');
+        var date = new Date(tgl);
+        if(date.getDay() === 0) continue; // Skip Minggu
+        var ci = k.shift === 2 ? '12:00' : '08:30';
+        var co = k.shift === 2 ? '21:00' : '17:30';
+        rows.push([tgl, k.nama, k.divisi||'', ci, co, '', '', 'Hadir', '']);
+      }
+    });
+
+    var ws1 = XLSX.utils.aoa_to_sheet(rows);
+    ws1['!cols'] = [{wch:14},{wch:30},{wch:8},{wch:10},{wch:10},{wch:12},{wch:13},{wch:10},{wch:25}];
+    ws1['!freeze'] = {xSplit:0, ySplit:3};
+    XLSX.utils.book_append_sheet(wb, ws1, 'HO');
+
+    var fileName = 'Template_Absensi_Bulanan_HO_' + bulanLabel + '.xlsx';
+  }
+
+  // ===== Sheet Referensi Karyawan =====
+  var rows2 = [
+    ['DAFTAR KARYAWAN - ' + (isMinggu ? 'CABANG (Mingguan)' : 'HO (Bulanan)')],
+    ['No','NPK','Nama Karyawan (ketik PERSIS ini)', 'Divisi', 'Jabatan', 'Shift'],
+  ];
+  if(aktif.length === 0) {
+    rows2.push(['', '', '\u26A0 Tidak ada karyawan ' + (isMinggu?'mingguan':'bulanan') + '!', '', '', '']);
+  } else {
+    aktif.forEach(function(k, i) {
+      rows2.push([i+1, k.npk||'-', k.nama, k.divisi||'-', k.jabatan||'-', 'Shift '+(k.shift||1)]);
+    });
+  }
+  var ws2 = XLSX.utils.aoa_to_sheet(rows2);
+  ws2['!cols'] = [{wch:4},{wch:14},{wch:35},{wch:8},{wch:22},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Referensi Karyawan');
+
+  // ===== Sheet Panduan =====
+  var rows3 = [
+    ['PANDUAN PENGISIAN TEMPLATE ABSENSI ' + (isMinggu ? 'MINGGUAN' : 'BULANAN')],
+    [''],
+    ['KOLOM', 'FORMAT', 'CONTOH', 'KETERANGAN'],
+    ['Tanggal',    'YYYY-MM-DD', '2026-04-01', 'Format tanggal wajib seperti ini'],
+    ['Nama',       'Teks',       'Suheri',     'Harus PERSIS sama dengan nama di Data Karyawan'],
+    ['Divisi',     'Singkatan',  'CTR',        'HO / DMB / CTR / GDS / BKS / CKG'],
+    ['Check In',   'HH:MM',      '08:30',      'Shift 1: 08:30 | Shift 2: 12:00 | Kosongkan jika Alpha'],
+    ['Check Out',  'HH:MM',      '17:30',      'Shift 1: 17:30 | Shift 2: 21:00 | Kosongkan jika Alpha'],
+    ['Menit Telat','Angka',      '15',         'Isi 0 jika tidak telat'],
+    isMinggu ? ['Lembur Menit','Angka','30','Menit lembur (checkout - jam standar)'] : ['','','',''],
+    ['Status',     'Pilihan',    'Hadir',      'Hadir / Alpha / Cuti / Sakit / Izin'],
+    ['Keterangan', 'Teks',       'Telat 15 mnt','Opsional'],
+    [''],
+    ['CARA IMPORT KE RUANGHRD'],
+    ['1', 'Isi data di sheet Absensi'],
+    ['2', 'Pastikan nama persis sama dengan sheet Referensi Karyawan'],
+    ['3', 'Buka RuangHRD \u2192 Menu Absensi \u2192 Klik "\uD83D\uDDA5\uFE0F Import Mesin Absen"'],
+    ['4', 'Pilih file Excel ini \u2192 Preview muncul \u2192 Klik "\u2705 Simpan Semua"'],
+  ];
+  var ws3 = XLSX.utils.aoa_to_sheet(rows3);
+  ws3['!cols'] = [{wch:14},{wch:18},{wch:18},{wch:50}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Panduan');
+
+  XLSX.writeFile(wb, fileName);
+  showAlert('\u2705 Template ' + (isMinggu?'Mingguan':'Bulanan') + ' berhasil didownload!');
+}
 
   var wb   = XLSX.utils.book_new();
   var GOLD = 'F5A800', DARK = '1A1A1A', WHITE = 'FFFFFF';
@@ -4325,13 +4486,6 @@ function exportTemplateAbsensi() {
   var ws3 = XLSX.utils.aoa_to_sheet(rows3);
   ws3['!cols'] = [{wch:14},{wch:18},{wch:18},{wch:50}];
   XLSX.utils.book_append_sheet(wb, ws3, 'Panduan');
-
-  // Nama file dengan bulan berjalan
-  var now2 = new Date();
-  var bulanLabel = now2.toLocaleDateString('id-ID',{month:'long',year:'numeric'}).replace(' ','-');
-  XLSX.writeFile(wb, 'Template_Absensi_RuangHRD_'+bulanLabel+'.xlsx');
-  showAlert('\u2705 Template berhasil didownload! Isi lalu import kembali ke RuangHRD.');
-}
 
 // ============ CUTI ============
 function cekSisaCuti(){
@@ -4784,7 +4938,7 @@ function renderLaporanTelat(){
 }
 
 function exportLaporanTelat(){
-  if(typeof XLSX==='undefined'){showAlert('Library Excel belum dimuat','#E74C3C');return;}
+  if(typeof XLSX==='undefined'){showAlert('\u23F3 Library Excel sedang dimuat, tunggu 3 detik lalu coba lagi...','#E67E22');return;}
   const periode=(document.getElementById('lap-telat-periode')?.value)||new Date().toISOString().slice(0,7);
   const divisi=(document.getElementById('lap-telat-divisi')?.value)||'';
   const q=(document.getElementById('lap-telat-search')?.value||'').toLowerCase();
@@ -4891,7 +5045,7 @@ function renderLaporanKasbon() {
 }
 
 function exportLaporanKasbon() {
-  if(typeof XLSX==='undefined'){showAlert('Library Excel belum dimuat','#E74C3C');return;}
+  if(typeof XLSX==='undefined'){showAlert('\u23F3 Library Excel sedang dimuat, tunggu 3 detik lalu coba lagi...','#E67E22');return;}
   var statusF = (document.getElementById('lap-kasbon-status')?.value)||'';
   var divisiF = (document.getElementById('lap-kasbon-divisi')?.value)||'';
   var q = (document.getElementById('lap-kasbon-search')?.value||'').toLowerCase();
@@ -5006,7 +5160,7 @@ function renderLaporanLembur() {
 }
 
 function exportLaporanLembur() {
-  if(typeof XLSX==='undefined'){showAlert('Library Excel belum dimuat','#E74C3C');return;}
+  if(typeof XLSX==='undefined'){showAlert('\u23F3 Library Excel sedang dimuat, tunggu 3 detik lalu coba lagi...','#E67E22');return;}
   var periode = (document.getElementById('lap-lembur-periode')?.value)||new Date().toISOString().slice(0,7);
   var statusF = (document.getElementById('lap-lembur-status')?.value)||'';
   var divisiF = (document.getElementById('lap-lembur-divisi')?.value)||'';
@@ -5121,7 +5275,7 @@ function renderLaporanUMBulanan() {
 }
 
 function exportLaporanUMBulanan() {
-  if(typeof XLSX==='undefined'){showAlert('Library Excel belum dimuat','#E74C3C');return;}
+  if(typeof XLSX==='undefined'){showAlert('\u23F3 Library Excel sedang dimuat, tunggu 3 detik lalu coba lagi...','#E67E22');return;}
   var periode = (document.getElementById('lap-um-bulan-periode')?.value)||new Date().toISOString().slice(0,7);
   var divisiF = (document.getElementById('lap-um-bulan-divisi')?.value)||'';
   var label = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
@@ -5205,7 +5359,7 @@ function isiUMPeriodeCepat(jumatStr) {
 
 // Export Laporan Absensi Bulanan
 function exportLaporanAbsensi() {
-  if(typeof XLSX==='undefined'){showAlert('Library Excel belum dimuat','#E74C3C');return;}
+  if(typeof XLSX==='undefined'){showAlert('\u23F3 Library Excel sedang dimuat, tunggu 3 detik lalu coba lagi...','#E67E22');return;}
   const periode = document.getElementById('lap-absen-periode').value;
   const label = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
   const wb = XLSX.utils.book_new();
@@ -5236,7 +5390,7 @@ function exportLaporanAbsensi() {
 
 // Export Laporan Gaji Bulanan
 function exportLaporanGaji() {
-  if(typeof XLSX==='undefined'){showAlert('Library Excel belum dimuat','#E74C3C');return;}
+  if(typeof XLSX==='undefined'){showAlert('\u23F3 Library Excel sedang dimuat, tunggu 3 detik lalu coba lagi...','#E67E22');return;}
   const periode = document.getElementById('lap-gaji-periode').value;
   const label = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
   const wb = XLSX.utils.book_new();
@@ -5268,7 +5422,7 @@ function exportLaporanGaji() {
 
 // Export Laporan UM + Lembur berdasarkan rentang tanggal
 function exportLaporanUM() {
-  if(typeof XLSX==='undefined'){showAlert('Library Excel belum dimuat','#E74C3C');return;}
+  if(typeof XLSX==='undefined'){showAlert('\u23F3 Library Excel sedang dimuat, tunggu 3 detik lalu coba lagi...','#E67E22');return;}
   const dari = document.getElementById('lap-um-dari').value;
   const sampai = document.getElementById('lap-um-sampai').value;
   if(!dari||!sampai){showAlert('Pilih rentang tanggal terlebih dahulu!','#E74C3C');return;}
@@ -5311,7 +5465,7 @@ function exportLaporanUM() {
 
 // Export Laporan Offboarding
 function exportLaporanOffboarding() {
-  if(typeof XLSX==='undefined'){showAlert('Library Excel belum dimuat','#E74C3C');return;}
+  if(typeof XLSX==='undefined'){showAlert('\u23F3 Library Excel sedang dimuat, tunggu 3 detik lalu coba lagi...','#E67E22');return;}
   const tahun = document.getElementById('lap-ob-tahun').value;
   const resigned = db.karyawan.filter(function(k){
     return k.status!=='Aktif' && (k.resignTgl||'').startsWith(tahun);
@@ -5340,7 +5494,7 @@ function exportLaporanOffboarding() {
 
 // Export Laporan Tahunan
 function exportLaporanTahunan() {
-  if(typeof XLSX==='undefined'){showAlert('Library Excel belum dimuat','#E74C3C');return;}
+  if(typeof XLSX==='undefined'){showAlert('\u23F3 Library Excel sedang dimuat, tunggu 3 detik lalu coba lagi...','#E67E22');return;}
   const tahun = document.getElementById('lap-tahunan-tahun').value;
   const wb = XLSX.utils.book_new();
 
@@ -5478,8 +5632,8 @@ function updateKaryawanSelects(){
 
 
 // ============ SEARCHABLE KARYAWAN PICKER ============
-const PICKER_IDS = ['a-karyawan','l-karyawan','c-karyawan','kb-karyawan'];
-const DIVISI_WARNA = {HO:'#F5A800',DMB:'#2ECC71',CTR:'#3498DB',GDS:'#E74C3C',BKS:'#9B59B6',CKG:'#1ABC9C'};
+var PICKER_IDS = ['a-karyawan','l-karyawan','c-karyawan','kb-karyawan'];
+var DIVISI_WARNA = {HO:'#F5A800',DMB:'#2ECC71',CTR:'#3498DB',GDS:'#E74C3C',BKS:'#9B59B6',CKG:'#1ABC9C'};
 
 function buildDropdownItems(searchQ, pickerId) {
   const q = (searchQ||'').toLowerCase().trim();
@@ -5658,7 +5812,7 @@ function resignKaryawan(id) {
 }
 
 // ============ DATE PICKER UM (skip Minggu & Hari Libur) ============
-const HARI_LIBUR_NASIONAL = [
+var HARI_LIBUR_NASIONAL = [
   // 2025-2026 (tambah sesuai kebutuhan)
   '2025-01-01','2025-01-27','2025-01-28','2025-01-29',
   '2025-02-12','2025-03-29','2025-03-30','2025-03-31',
@@ -5673,9 +5827,9 @@ const HARI_LIBUR_NASIONAL = [
   '2026-06-16','2026-08-17','2026-12-25',
 ];
 
-let dpYear = new Date().getFullYear();
-let dpMonth = new Date().getMonth();
-let dpSelectedDate = null;
+var dpYear = new Date().getFullYear();
+var dpMonth = new Date().getMonth();
+var dpSelectedDate = null;
 
 function isHariLibur(dateStr) {
   return HARI_LIBUR_NASIONAL.includes(dateStr);
@@ -5771,10 +5925,10 @@ function selectDPDate(ds) {
   renderUM();
 }
 
-let umSelectedJumat = null;
+var umSelectedJumat = null;
 
 // Override renderUM untuk pakai umSelectedJumat dari date picker
-const _origRenderUM = renderUM;
+var _origRenderUM = renderUM;
 // Patch agar renderUM bisa pakai date picker value
 function getUMPeriodeVal() {
   return umSelectedJumat || document.getElementById('umMinggu')?.value || '';
@@ -5942,7 +6096,7 @@ function buatLaporanPayroll() {
 }
 
 // ============ TANDA TANGAN DIGITAL ============
-let signCanvas, signCtx, signing=false, signHasData=false;
+var signCanvas, signCtx, signing=false, signHasData=false;
 
 function initSignCanvas() {
   signCanvas = document.getElementById('sign-canvas');
@@ -5988,7 +6142,7 @@ function submitPayroll() {
 }
 
 function exportPayrollWithSign(namaHRD, jabatan, periode, divisiFilter) {
-  if(typeof XLSX === 'undefined') { showAlert('Library Excel belum dimuat. Coba online dulu.','#E74C3C'); return; }
+  if(typeof XLSX==='undefined'){showAlert('\u23F3 Library Excel sedang dimuat, tunggu 3 detik lalu coba lagi...','#E67E22');return;}
 
   const periodeLabel = new Date(periode+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
   let list = db.karyawan.filter(k=>k.status==='Aktif');
@@ -6024,7 +6178,7 @@ function exportPayrollWithSign(namaHRD, jabatan, periode, divisiFilter) {
 
 
 // ============ IMPORT ABSENSI DARI MESIN (SOLUTION X107) ============
-let importAbsenBuffer = [];
+var importAbsenBuffer = [];
 
 function importAbsensiMesin(input) {
   const file = input.files[0];
@@ -6040,14 +6194,18 @@ function importAbsensiMesin(input) {
     try {
       const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
 
-      // Pilih sheet: cari yang namanya mengandung 'absensi', fallback ke terbanyak
-      let bestSheet = null, bestRows = 0;
+      // Pilih sheet: prioritas absensi > divisi (HO/DMB/CTR dll) > terbanyak baris
+      const DIVISI_SHEETS = ['ho','dmb','ctr','gds','cgk','bks','all','harian','bulanan','mingguan'];
+      let bestSheet = null, bestRows = 0, bestPrio = 0;
       wb.SheetNames.forEach(sn => {
+        const snl = sn.toLowerCase().trim();
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, defval:''});
-        if(sn.toLowerCase().includes('absensi') || sn.toLowerCase().includes('attendance')) {
-          bestSheet = sn; bestRows = 99999; // prioritaskan sheet absensi
-        } else if(rows.length > bestRows && bestRows < 99999) {
-          bestRows = rows.length; bestSheet = sn;
+        let prio = 0;
+        if(snl.includes('absensi') || snl.includes('attendance') || snl.includes('harian')) prio = 3;
+        else if(DIVISI_SHEETS.includes(snl)) prio = 2;
+        else if(rows.length > 5) prio = 1;
+        if(prio > bestPrio || (prio === bestPrio && rows.length > bestRows)) {
+          bestPrio = prio; bestRows = rows.length; bestSheet = sn;
         }
       });
 
@@ -6092,7 +6250,8 @@ function importAbsensiMesin(input) {
       const colDate   = col(['tanggal','date','tgl']);
       const colIn     = col(['check in','time in','in time','masuk','clock in','jam masuk','jam masuk','time1','first']);
       const colOut    = col(['check out','time out','out time','keluar','clock out','jam keluar','time2','last']);
-      const colLate   = col(['late','terlambat','keterlambatan','menit telat','menit']);
+      const colLate   = col(['menit telat','late','terlambat','keterlambatan','menit']);
+      const colLembur = col(['lembur menit','lembur','overtime','ot']);
       const colStatus = col(['status','attend','hadir','remark','keterangan']);
       const colID     = col(['no','id','employee id','emp id','user id']);
 
@@ -6119,9 +6278,24 @@ function importAbsensiMesin(input) {
           tglStr = parseFlexDate(tglStr);
           if(!tglStr) continue;
 
-          const timeIn  = colIn>=0  ? parseFlexTime(String(r[colIn]||'').trim())  : '';
-          const timeOut = colOut>=0 ? parseFlexTime(String(r[colOut]||'').trim()) : '';
-          const late    = colLate>=0 ? parseInt(String(r[colLate]||'0').replace(/[^0-9]/g,''))||0 : 0;
+          const timeIn   = colIn>=0    ? parseFlexTime(String(r[colIn]||'').trim())  : '';
+          const timeOut  = colOut>=0   ? parseFlexTime(String(r[colOut]||'').trim()) : '';
+          const lateRaw  = colLate>=0  ? parseInt(String(r[colLate]||'').replace(/[^0-9]/g,'')) : NaN;
+          const lemburMn = colLembur>=0 ? parseInt(String(r[colLembur]||'0').replace(/[^0-9]/g,''))||0 : 0;
+
+          // Auto-hitung menit telat jika kolom kosong tapi ada Check In
+          let late = 0;
+          if(!isNaN(lateRaw) && lateRaw > 0) {
+            late = lateRaw;
+          } else if(timeIn) {
+            // Tentukan jam standar masuk berdasarkan shift
+            const toMin = t => { if(!t) return 0; const[h,m]=t.split(':').map(Number); return h*60+m; };
+            const threshold = ATURAN.thresholdShift2 || '10:30';
+            const isShift2 = toMin(timeIn) >= toMin(threshold);
+            const jamStandar = isShift2 ? (ATURAN.jamMasukShift2||'12:00') : (ATURAN.jamMasukShift1||ATURAN.jamMasuk||'08:30');
+            const selisih = toMin(timeIn) - toMin(jamStandar);
+            late = selisih > 0 ? selisih : 0;
+          }
 
           // Tentukan status
           // Cek hari Minggu dulu - jika Minggu dan tidak ada jam → Libur (skip)
@@ -6400,11 +6574,19 @@ function konfirmasiImportAbsensi() {
   });
 
   patchDb();
+  _localDirtyUntil = Date.now() + 8000; // blok cloud merge 8 detik saat import besar
   saveToStorage();
+  // Langsung upload ke Supabase tanpa delay
+  if(_sbReady) {
+    if(_syncPending) clearTimeout(_syncPending);
+    supabaseSave().then(function(){ 
+      _localDirtyUntil = 0; // selesai upload, buka lagi cloud merge
+    });
+  }
   importAbsenBuffer=[];
   document.getElementById('import-absen-preview').style.display='none';
   if(toImport.length>0) {
-    document.getElementById('filterAbsensi').value = toImport[0].tanggal;
+    document.getElementById('filterAbsensi').value = toImport[0].tanggal.slice(0,7);
   }
   renderAbsensi();
   let msg = '✅ '+berhasil+' absensi diimport';
@@ -7766,28 +7948,8 @@ function exportExcelGaji() {
 
 
 
-// ============ LOGIN SYSTEM ============
-const USERS = {
-  staff: {
-    passHash: hashPass('hrd123'),
-    nama: 'Staff HRD',
-    role: 'staff',
-    akses: ['dashboard','absensi','lembur','um'],  // halaman yang boleh diakses
-    label: 'Staff HRD',
-    warna: 'staff'
-  },
-  kepala: {
-    passHash: hashPass('kepala456'),
-    nama: 'Kepala HRD',
-    role: 'kepala',
-    akses: ['dashboard','karyawan','absensi','lembur','um','kasbon','gaji','slip','cuti','laporan','offboarding','assistant','settings'],
-    label: 'Kepala HRD',
-    warna: 'kepala'
-  }
-};
 
-let currentUser = null;
-let selectedRole = null;
+var selectedRole = null;
 
 function pilihRole(role) {
   selectedRole = role;
@@ -7950,6 +8112,7 @@ function saveToStorage() {
     });
   // Sync ke Supabase cloud
   if(_sbReady) {
+    _localDirtyUntil = Date.now() + 5000; // blok cloud merge 5 detik
     if(_syncPending) clearTimeout(_syncPending);
     _syncPending = setTimeout(function(){ supabaseSave(); _syncPending=null; }, 800);
   }
@@ -8022,7 +8185,7 @@ function resetStorage() {
 }
 
 // Auto-save setiap perubahan data
-const _origPush = Array.prototype.push;
+var _origPush = Array.prototype.push;
 function patchDb() {
   if(!db.potonganDadakan) db.potonganDadakan = [];
   ['karyawan','absensi','lembur','cuti','kasbon','gaji','potonganDadakan'].forEach(key => {
@@ -8064,7 +8227,7 @@ function doManualSave() {
 
 // ============ INIT ============
 // Clear localStorage dari versi lama (ada data 71 karyawan)
-const APP_VERSION = 'v5.9-bugfix';
+var APP_VERSION = 'v5.9-bugfix';
 if(localStorage.getItem('ruanghrd_version') !== APP_VERSION) {
   // Clear localStorage
   localStorage.removeItem('ruanghrd_db');
