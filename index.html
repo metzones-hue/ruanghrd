@@ -1996,6 +1996,7 @@ select option { background:var(--dark3); }
     <div class="modal-title">👤 Tambah Karyawan</div>
     <div class="form-grid">
       <div class="form-group"><label>Nama Lengkap</label><input id="k-nama" type="text" placeholder="Nama lengkap karyawan"></div>
+      <div class="form-group"><label>NPK / ID Karyawan</label><input id="k-npk" type="text" placeholder="Contoh: CGK-001"><div class="form-note">Opsional — bisa diisi nanti</div></div>
       <div class="form-group"><label>Jabatan</label><input id="k-jabatan" type="text" placeholder="Contoh: Operator Mesin"></div>
       <div class="form-group"><label>Cabang</label>
         <select id="k-cabang">
@@ -2735,6 +2736,7 @@ function tambahKaryawan(){
   var ktpData = window._ktpBase64 || null;
   db.karyawan.push({
     id:nextId(db.karyawan), nama,
+    npk:document.getElementById('k-npk').value.trim(),
     jabatan:document.getElementById('k-jabatan').value,
     cabang:document.getElementById('k-cabang').value,
     hp:document.getElementById('k-hp').value,
@@ -2754,7 +2756,7 @@ function tambahKaryawan(){
   closeModal('modal-karyawan');
   renderKaryawan(); updatePeriodeOptions(); updateUMMingguOptions(); updateKaryawanSelects();
   showAlert('\u2705 Karyawan berhasil ditambahkan!');
-  ['k-nama','k-jabatan','k-hp','k-email','k-gaji','k-tunjangan','k-masuk','k-um-default'].forEach(id=>document.getElementById(id).value='');
+  ['k-nama','k-npk','k-jabatan','k-hp','k-email','k-gaji','k-tunjangan','k-masuk','k-um-default'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('k-lembur-malam-aktif').value='ya';
   clearKTP();
 }
