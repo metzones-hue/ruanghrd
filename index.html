@@ -123,11 +123,9 @@ function supabaseSubscribeRealtime() {
       console.log('[Supabase] Realtime update dari device lain');
       mergeDbFromCloud(payload.new);
       patchDb();
-      saveToStorage();
       updatePeriodeOptions();
       updateUMMingguOptions();
       updateKaryawanSelects();
-      applyCustomDivisi();
       renderDashboard();
       showAlert('🔄 Data disinkron dari perangkat lain');
       updateSbStatus('synced');
@@ -352,12 +350,12 @@ select option { background:var(--dark3); }
 .tag-resign { background:rgba(231,76,60,0.12); border:1px solid rgba(231,76,60,0.3); color:var(--red); padding:3px 8px; border-radius:20px; font-size:11px; font-weight:600; }
 
 /* Date Picker UM */
-.date-picker-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-top:8px; min-height:180px; }
+.date-picker-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-top:8px; }
 .dp-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
 .dp-nav { background:var(--dark3); border:none; color:var(--white); width:28px; height:28px; border-radius:6px; cursor:pointer; font-size:14px; }
 .dp-nav:hover { background:var(--gold); color:var(--dark); }
 .dp-day-name { text-align:center; font-size:10px; color:var(--gray); padding:2px 0; }
-.dp-day { text-align:center; padding:5px 2px; border-radius:6px; cursor:pointer; font-size:12px; color:var(--gray-light); border:1px solid transparent; min-height:28px; line-height:18px; }
+.dp-day { text-align:center; padding:5px 2px; border-radius:6px; cursor:pointer; font-size:12px; color:var(--gray-light); border:1px solid transparent; }
 .dp-day:hover:not(.dp-empty):not(.dp-holiday):not(.dp-sunday) { background:var(--dark3); border-color:var(--gold); color:var(--gold); }
 .dp-day.dp-selected { background:var(--gold); color:var(--dark); font-weight:700; }
 .dp-day.dp-today { border-color:var(--green); color:var(--green); }
@@ -847,12 +845,12 @@ select option { background:var(--dark3); }
         </div>
       </div>
 
-      <!-- Row 3: Kehadiran per Cabang + Lembur pending -->
+      <!-- Row 3: Kehadiran per Divisi + Lembur pending -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
 
         <!-- Kehadiran per divisi (bar) -->
         <div class="section">
-          <div class="section-header"><div class="section-title">🏢 Kehadiran per Cabang (Hari Ini)</div></div>
+          <div class="section-header"><div class="section-title">🏢 Kehadiran per Divisi (Hari Ini)</div></div>
           <div class="section-body" id="dash-divisi-chart" style="padding:12px 18px;"></div>
         </div>
 
@@ -888,7 +886,7 @@ select option { background:var(--dark3); }
 
       <div class="flex justify-between items-center mb-3">
         <div class="flex gap-2 items-center">
-          <div class="search-bar" style="width:240px;"><input type="text" id="searchKaryawan" placeholder="🔍 Cari nama, NPK, cabang..." onkeyup="renderKaryawan()"></div>
+          <div class="search-bar" style="width:240px;"><input type="text" id="searchKaryawan" placeholder="🔍 Cari nama, NPK, divisi..." onkeyup="renderKaryawan()"></div>
           <label style="font-size:12px;color:var(--gray);display:flex;align-items:center;gap:4px;cursor:pointer;">
             <input type="checkbox" id="showResign" onchange="renderKaryawan()" style="width:auto;">
             Tampilkan resign
@@ -918,7 +916,7 @@ select option { background:var(--dark3); }
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>#</th><th>Nama</th><th>Cabang</th><th>Jabatan</th><th>Cabang</th><th>Gaji Pokok</th><th>Tunj.Jabatan</th><th>BPJS</th><th>Upah Lembur/Jam</th><th>Hak Cuti</th><th>UM Mode</th><th>Status</th><th>Ket</th></tr></thead>
+            <thead><tr><th>#</th><th>Nama</th><th>Divisi</th><th>Jabatan</th><th>Cabang</th><th>Gaji Pokok</th><th>Tunj.Jabatan</th><th>BPJS</th><th>Upah Lembur/Jam</th><th>Hak Cuti</th><th>UM Mode</th><th>Status</th><th>Ket</th></tr></thead>
             <tbody id="tbody-import-preview"></tbody>
           </table>
         </div>
@@ -926,7 +924,7 @@ select option { background:var(--dark3); }
       <div class="section">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>NPK</th><th>Nama</th><th>Cabang</th><th>Jabatan</th><th>Gaji Pokok</th><th>Tunj. Jabatan</th><th>BPJS</th><th>Upah Lembur/jam</th><th>Hak Cuti</th><th>Sisa Cuti</th><th>Status</th><th>Aksi</th></tr></thead>
+            <thead><tr><th>NPK</th><th>Nama</th><th>Divisi</th><th>Jabatan</th><th>Gaji Pokok</th><th>Tunj. Jabatan</th><th>BPJS</th><th>Upah Lembur/jam</th><th>Hak Cuti</th><th>Sisa Cuti</th><th>Status</th><th>Aksi</th></tr></thead>
             <tbody id="tbody-karyawan"></tbody>
           </table>
         </div>
@@ -979,13 +977,13 @@ select option { background:var(--dark3); }
           <input type="month" id="filterAbsensi" onchange="renderAbsensi()" style="width:160px;">
           <input type="text" id="filterAbsensiNama" placeholder="Cari nama karyawan..." oninput="renderAbsensi()" style="width:220px;">
           <select id="filterAbsensiDivisi" onchange="renderAbsensi()" style="width:130px;">
-            <option value="">Semua Cabang</option>
+            <option value="">Semua Divisi</option>
             <option value="HO">HO</option>
             <option value="DMB">DMB</option>
             <option value="CTR">CTR</option>
             <option value="GDS">GDS</option>
             <option value="BKS">BKS</option>
-            <option value="CGK">CGK</option>
+            <option value="CKG">CKG</option>
           </select>
         </div>
         <div class="flex gap-2">
@@ -1010,7 +1008,7 @@ select option { background:var(--dark3); }
       <div class="section">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Nama / Cabang</th><th>Total Hadir</th><th>Tdk Hadir</th><th>Total Menit Telat</th><th>Lembur Disetujui</th><th>Detail Bulan Berjalan</th></tr></thead>
+            <thead><tr><th>Nama / Divisi</th><th>Total Hadir</th><th>Tdk Hadir</th><th>Total Menit Telat</th><th>Lembur Disetujui</th><th>Detail Bulan Berjalan</th></tr></thead>
             <tbody id="tbody-absensi"></tbody>
           </table>
         </div>
@@ -1028,10 +1026,10 @@ select option { background:var(--dark3); }
           <input type="month" id="filterLemburBulan" onchange="renderLembur()" style="width:160px;">
           <input type="text" id="filterLemburNama" placeholder="Cari nama karyawan..." oninput="renderLembur()" style="width:220px;">
           <select id="filterLemburDivisi" onchange="renderLembur()" style="width:120px;">
-            <option value="">Semua Cabang</option>
+            <option value="">Semua Divisi</option>
             <option value="HO">HO</option><option value="DMB">DMB</option>
             <option value="CTR">CTR</option><option value="GDS">GDS</option>
-            <option value="BKS">BKS</option><option value="CGK">CGK</option>
+            <option value="BKS">BKS</option><option value="CKG">CKG</option>
           </select>
           <button class="btn btn-outline btn-sm" onclick="resetFilterLembur()" style="font-size:11px;">✕ Reset</button>
         </div>
@@ -1042,7 +1040,7 @@ select option { background:var(--dark3); }
       <div class="section">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Nama</th><th>Cabang</th><th>Total Menit Lembur</th><th>Total Upah</th><th>Disetujui</th><th>Pending</th><th>Detail Bulanan</th></tr></thead>
+            <thead><tr><th>Nama</th><th>Divisi</th><th>Total Menit Lembur</th><th>Total Upah</th><th>Disetujui</th><th>Pending</th><th>Detail Bulanan</th></tr></thead>
             <tbody id="tbody-lembur"></tbody>
           </table>
         </div>
@@ -1074,20 +1072,20 @@ select option { background:var(--dark3); }
             <button id="um-mode-bulan" class="btn btn-outline btn-sm" onclick="setUMMode('bulan')" style="border-radius:6px;">📆 Per Bulan</button>
           </div>
           <select id="filterUMDivisi" onchange="renderUM()" style="width:120px;">
-            <option value="">Semua Cabang</option>
+            <option value="">Semua Divisi</option>
             <option value="HO">HO</option>
             <option value="DMB">DMB</option>
             <option value="CTR">CTR</option>
             <option value="GDS">GDS</option>
             <option value="BKS">BKS</option>
-            <option value="CGK">CGK</option>
+            <option value="CKG">CKG</option>
           </select>
-          <div style="position:relative;overflow:visible;">
+          <div style="position:relative;">
             <button onclick="toggleDatePicker()" class="btn btn-outline" id="um-date-btn" style="width:240px;justify-content:space-between;">
               <span id="um-date-label">📅 Pilih Periode</span>
               <span>▾</span>
             </button>
-            <div id="um-date-picker" style="display:none;position:absolute;top:100%;left:0;z-index:200;background:var(--dark2);border:1px solid var(--dark4);border-radius:12px;padding:16px;width:360px;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,0.5);">
+            <div id="um-date-picker" style="display:none;position:absolute;top:100%;left:0;z-index:200;background:var(--dark2);border:1px solid var(--dark4);border-radius:12px;padding:16px;width:320px;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,0.5);">
               <div class="dp-header">
                 <button class="dp-nav" onclick="dpNav(-1)">◀</button>
                 <strong id="dp-month-label" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;"></strong>
@@ -1113,7 +1111,7 @@ select option { background:var(--dark3); }
       <div class="section">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>No</th><th>Nama</th><th>Cabang</th><th>Hari Hadir</th><th>Alpha</th><th>Hak Cuti</th><th>UM Kotor</th><th>Potongan Kas Bon</th><th>UM Bersih</th><th>Lembur Minggu Ini</th><th>Lembur Malam</th><th>Total Dibayar</th><th>Status</th><th>Aksi</th></tr></thead>
+            <thead><tr><th>No</th><th>Nama</th><th>Divisi</th><th>Hari Hadir</th><th>Alpha</th><th>Hak Cuti</th><th>UM Kotor</th><th>Potongan Kas Bon</th><th>UM Bersih</th><th>Lembur Minggu Ini</th><th>Lembur Malam</th><th>Total Dibayar</th><th>Status</th><th>Aksi</th></tr></thead>
             <tbody id="tbody-um"></tbody>
           </table>
         </div>
@@ -1142,10 +1140,10 @@ select option { background:var(--dark3); }
           <div class="summary-item"><div class="summary-item-label">Sudah Lunas</div><div class="summary-item-value text-green" id="kb-total-lunas">0</div></div>
         </div>
         <select id="filterKasbonDivisi" onchange="renderKasbon()" style="width:130px;margin-right:8px;">
-            <option value="">Semua Cabang</option>
+            <option value="">Semua Divisi</option>
             <option value="HO">HO</option><option value="DMB">DMB</option>
             <option value="CTR">CTR</option><option value="GDS">GDS</option>
-            <option value="BKS">BKS</option><option value="CGK">CGK</option>
+            <option value="BKS">BKS</option><option value="CKG">CKG</option>
           </select>
           <button class="btn btn-outline" onclick="openModal('modal-potongan-dadakan')" style="border-color:var(--purple);color:var(--purple);margin-right:8px;">✂️ Potongan Dadakan</button>
           <button class="btn btn-gold" onclick="openModal('modal-kasbon')">＋ Ajukan Kas Bon</button>
@@ -1166,13 +1164,13 @@ select option { background:var(--dark3); }
         <div class="flex gap-2 items-center">
           <select id="gajiPeriode" onchange="renderGaji()" style="width:180px;"></select>
           <select id="gajiFilterDivisi" onchange="renderGaji()" style="width:140px;">
-            <option value="">Semua Cabang</option>
+            <option value="">Semua Divisi</option>
             <option value="HO">HO</option>
             <option value="DMB">DMB</option>
             <option value="CTR">CTR</option>
             <option value="GDS">GDS</option>
             <option value="BKS">BKS</option>
-            <option value="CGK">CGK</option>
+            <option value="CKG">Cengkareng</option>
           </select>
         </div>
         <button class="btn btn-gold" onclick="hitungSemuaGaji()">⚡ Hitung & Tandai Semua</button>
@@ -1193,10 +1191,10 @@ select option { background:var(--dark3); }
       <div class="flex justify-between items-center mb-3">
         <div class="flex gap-2 items-center">
           <select id="slipFilterDivisi" onchange="filterSlipKaryawan()" style="width:120px;">
-            <option value="">Semua Cabang</option>
+            <option value="">Semua Divisi</option>
             <option value="HO">HO</option><option value="DMB">DMB</option>
             <option value="CTR">CTR</option><option value="GDS">GDS</option>
-            <option value="BKS">BKS</option><option value="CGK">CGK</option>
+            <option value="BKS">BKS</option><option value="CKG">CKG</option>
           </select>
           <select id="slipKaryawan" style="width:200px;"><option value="">-- Pilih Karyawan --</option></select>
           <select id="slipPeriode" style="width:150px;"></select>
@@ -1217,10 +1215,10 @@ select option { background:var(--dark3); }
       <div class="flex justify-between items-center mb-3">
         <div></div>
         <select id="filterCutiDivisi" onchange="renderCuti()" style="width:130px;margin-right:8px;">
-            <option value="">Semua Cabang</option>
+            <option value="">Semua Divisi</option>
             <option value="HO">HO</option><option value="DMB">DMB</option>
             <option value="CTR">CTR</option><option value="GDS">GDS</option>
-            <option value="BKS">BKS</option><option value="CGK">CGK</option>
+            <option value="BKS">BKS</option><option value="CKG">CKG</option>
           </select>
           <button class="btn btn-gold" onclick="openModal('modal-cuti')">＋ Ajukan Cuti / Izin</button>
       </div>
@@ -1273,7 +1271,7 @@ select option { background:var(--dark3); }
               <tr>
                 <th>NPK</th>
                 <th>Nama</th>
-                <th>Cabang</th>
+                <th>Divisi</th>
                 <th>Jabatan</th>
                 <th>Tgl Masuk</th>
                 <th>Tgl Resign</th>
@@ -1337,15 +1335,15 @@ select option { background:var(--dark3); }
                   <select id="asst-periode" style="width:100%;"></select>
                 </div>
                 <div class="form-group">
-                  <label>Cabang</label>
+                  <label>Divisi</label>
                   <select id="asst-divisi" style="width:100%;">
-                    <option value="">Semua Cabang</option>
+                    <option value="">Semua Divisi</option>
                     <option value="HO">HO</option>
                     <option value="DMB">DMB</option>
                     <option value="CTR">CTR</option>
                     <option value="GDS">GDS</option>
                     <option value="BKS">BKS</option>
-                    <option value="CGK">CGK</option>
+                    <option value="CKG">Cengkareng</option>
                   </select>
                 </div>
               </div>
@@ -1530,32 +1528,6 @@ select option { background:var(--dark3); }
 
       <!-- Ganti Password -->
       <div class="section" style="margin-top:20px;">
-        <div class="section-header"><div class="section-title">🏢 Kelola Cabang</div></div>
-        <div class="section-body">
-          <div style="font-size:12px;color:var(--gray);margin-bottom:12px;">Cabang bawaan: HO, DMB, CTR, GDS, BKS, CGK. Tambah cabang baru di sini — otomatis muncul di semua filter &amp; form.</div>
-          <div id="divisi-mgmt-list" style="margin-bottom:16px;"></div>
-          <div style="display:grid;grid-template-columns:1fr 2fr auto auto;gap:10px;align-items:end;">
-            <div>
-              <label style="font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">Kode (maks 5 huruf)</label>
-              <input id="new-div-kode" type="text" maxlength="5" placeholder="cth: TGR" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
-            </div>
-            <div>
-              <label style="font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">Nama Lengkap</label>
-              <input id="new-div-nama" type="text" placeholder="cth: Tangerang">
-            </div>
-            <div>
-              <label style="font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">Warna</label>
-              <input id="new-div-warna" type="color" value="#607D8B" style="width:48px;height:38px;padding:2px;border-radius:6px;cursor:pointer;">
-            </div>
-            <div>
-              <button class="btn btn-gold" onclick="tambahDivisi()" style="height:38px;padding:0 16px;">+ Tambah</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Ganti Password -->
-      <div class="section" style="margin-top:20px;">
         <div class="section-header"><div class="section-title">🔐 Ganti Password</div></div>
         <div class="section-body">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -1636,7 +1608,7 @@ select option { background:var(--dark3); }
                 <option value="">Semua</option>
                 <option value="HO">HO</option><option value="DMB">DMB</option>
                 <option value="CTR">CTR</option><option value="GDS">GDS</option>
-                <option value="BKS">BKS</option><option value="CGK">CGK</option>
+                <option value="BKS">BKS</option><option value="CKG">CKG</option>
               </select>
               <select id="lap-absen-periode" style="flex:1;min-width:130px;"></select>
               <button class="btn btn-blue btn-sm" onclick="exportLaporanAbsensi()">&#128194; Excel</button>
@@ -1656,7 +1628,7 @@ select option { background:var(--dark3); }
                 <option value="">Semua</option>
                 <option value="HO">HO</option><option value="DMB">DMB</option>
                 <option value="CTR">CTR</option><option value="GDS">GDS</option>
-                <option value="BKS">BKS</option><option value="CGK">CGK</option>
+                <option value="BKS">BKS</option><option value="CKG">CKG</option>
               </select>
               <select id="lap-gaji-periode" style="flex:1;min-width:130px;"></select>
               <button class="btn btn-gold btn-sm" onclick="exportLaporanGaji()">&#128194; Excel</button>
@@ -1681,7 +1653,7 @@ select option { background:var(--dark3); }
                 <option value="">Semua</option>
                 <option value="HO">HO</option><option value="DMB">DMB</option>
                 <option value="CTR">CTR</option><option value="GDS">GDS</option>
-                <option value="BKS">BKS</option><option value="CGK">CGK</option>
+                <option value="BKS">BKS</option><option value="CKG">CKG</option>
               </select>
               <button class="btn btn-green btn-sm" onclick="exportLaporanUM()">&#128194; Excel</button>
               <button class="btn btn-outline btn-sm" onclick="printLaporanUM()" style="border-color:#e74c3c;color:#e74c3c;">&#128438; PDF</button>
@@ -1706,7 +1678,7 @@ select option { background:var(--dark3); }
                 <option value="">Semua</option>
                 <option value="HO">HO</option><option value="DMB">DMB</option>
                 <option value="CTR">CTR</option><option value="GDS">GDS</option>
-                <option value="BKS">BKS</option><option value="CGK">CGK</option>
+                <option value="BKS">BKS</option><option value="CKG">CKG</option>
               </select>
               <button class="btn btn-sm" style="background:var(--red);color:white;" onclick="exportLaporanOffboarding()">&#128194; Excel</button>
               <button class="btn btn-outline btn-sm" onclick="printLaporanOffboarding()" style="border-color:#e74c3c;color:#e74c3c;">&#128438; PDF</button>
@@ -1729,7 +1701,7 @@ select option { background:var(--dark3); }
                   <option value="">Semua</option>
                   <option value="HO">HO</option><option value="DMB">DMB</option>
                   <option value="CTR">CTR</option><option value="GDS">GDS</option>
-                  <option value="BKS">BKS</option><option value="CGK">CGK</option>
+                  <option value="BKS">BKS</option><option value="CKG">CKG</option>
                 </select>
                 <input type="text" id="lap-telat-search" placeholder="Cari nama..." oninput="renderLaporanTelat()" style="width:180px;">
                 <button class="btn btn-green btn-sm" onclick="exportLaporanTelat()">📁 Excel</button>
@@ -1748,7 +1720,7 @@ select option { background:var(--dark3); }
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>No</th><th>Nama</th><th>Cabang</th><th>Total Menit Telat</th><th>Jumlah Hari Telat</th></tr></thead>
+                <thead><tr><th>No</th><th>Nama</th><th>Divisi</th><th>Total Menit Telat</th><th>Jumlah Hari Telat</th></tr></thead>
                 <tbody id="tbody-lap-telat"></tbody>
               </table>
             </div>
@@ -1770,7 +1742,7 @@ select option { background:var(--dark3); }
                   <option value="">Semua</option>
                   <option value="HO">HO</option><option value="DMB">DMB</option>
                   <option value="CTR">CTR</option><option value="GDS">GDS</option>
-                  <option value="BKS">BKS</option><option value="CGK">CGK</option>
+                  <option value="BKS">BKS</option><option value="CKG">CKG</option>
                 </select>
                 <button class="btn btn-green" onclick="exportLaporanCuti()">&#128194; Excel</button>
                 <button class="btn btn-outline" onclick="printLaporanCuti()" style="border-color:#e74c3c;color:#e74c3c;">&#128438; PDF</button>
@@ -1795,7 +1767,7 @@ select option { background:var(--dark3); }
                   <option value="">Semua</option>
                   <option value="HO">HO</option><option value="DMB">DMB</option>
                   <option value="CTR">CTR</option><option value="GDS">GDS</option>
-                  <option value="BKS">BKS</option><option value="CGK">CGK</option>
+                  <option value="BKS">BKS</option><option value="CKG">CKG</option>
                 </select>
                 <button class="btn btn-green" onclick="exportLaporanTahunan()">&#128194; Excel</button>
                 <button class="btn btn-outline" onclick="printLaporanTahunan()" style="border-color:#e74c3c;color:#e74c3c;">&#128438; PDF</button>
@@ -1823,7 +1795,7 @@ select option { background:var(--dark3); }
                   <option value="">Semua</option>
                   <option value="HO">HO</option><option value="DMB">DMB</option>
                   <option value="CTR">CTR</option><option value="GDS">GDS</option>
-                  <option value="BKS">BKS</option><option value="CGK">CGK</option>
+                  <option value="BKS">BKS</option><option value="CKG">CKG</option>
                 </select>
                 <input type="text" id="lap-kasbon-search" placeholder="Cari nama..." oninput="renderLaporanKasbon()" style="width:160px;">
                 <button class="btn btn-green btn-sm" onclick="exportLaporanKasbon()">📁 Excel</button>
@@ -1850,7 +1822,7 @@ select option { background:var(--dark3); }
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>No</th><th>Tanggal</th><th>Nama</th><th>Cabang</th><th>Jumlah Pinjaman</th><th>Cicilan</th><th>Via</th><th>Sisa Hutang</th><th>Keterangan</th><th>Status</th></tr></thead>
+                <thead><tr><th>No</th><th>Tanggal</th><th>Nama</th><th>Divisi</th><th>Jumlah Pinjaman</th><th>Cicilan</th><th>Via</th><th>Sisa Hutang</th><th>Keterangan</th><th>Status</th></tr></thead>
                 <tbody id="tbody-lap-kasbon"></tbody>
               </table>
             </div>
@@ -1878,7 +1850,7 @@ select option { background:var(--dark3); }
                   <option value="">Semua</option>
                   <option value="HO">HO</option><option value="DMB">DMB</option>
                   <option value="CTR">CTR</option><option value="GDS">GDS</option>
-                  <option value="BKS">BKS</option><option value="CGK">CGK</option>
+                  <option value="BKS">BKS</option><option value="CKG">CKG</option>
                 </select>
                 <input type="text" id="lap-lembur-search" placeholder="Cari nama..." oninput="renderLaporanLembur()" style="width:160px;">
                 <button class="btn btn-green btn-sm" onclick="exportLaporanLembur()">📁 Excel</button>
@@ -1905,7 +1877,7 @@ select option { background:var(--dark3); }
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>No</th><th>Tanggal</th><th>Nama</th><th>Cabang</th><th>Mulai</th><th>Selesai</th><th>Jam Total</th><th>Upah/Jam</th><th>Bonus Malam</th><th>Total Upah</th><th>Status</th></tr></thead>
+                <thead><tr><th>No</th><th>Tanggal</th><th>Nama</th><th>Divisi</th><th>Mulai</th><th>Selesai</th><th>Jam Total</th><th>Upah/Jam</th><th>Bonus Malam</th><th>Total Upah</th><th>Status</th></tr></thead>
                 <tbody id="tbody-lap-lembur"></tbody>
               </table>
             </div>
@@ -1927,7 +1899,7 @@ select option { background:var(--dark3); }
                   <option value="">Semua</option>
                   <option value="HO">HO</option><option value="DMB">DMB</option>
                   <option value="CTR">CTR</option><option value="GDS">GDS</option>
-                  <option value="BKS">BKS</option><option value="CGK">CGK</option>
+                  <option value="BKS">BKS</option><option value="CKG">CKG</option>
                 </select>
                 <button class="btn btn-green btn-sm" onclick="exportLaporanUMBulanan()">📁 Excel</button>
                 <button class="btn btn-outline btn-sm" onclick="printLaporanUMBulanan()" style="border-color:#e74c3c;color:#e74c3c;">🖨 PDF</button>
@@ -1949,7 +1921,7 @@ select option { background:var(--dark3); }
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>No</th><th>Nama</th><th>Cabang</th><th>Hari Hadir</th><th>UM/Hari</th><th>Total UM Kotor</th><th>Potongan KB (UM)</th><th>UM Bersih</th></tr></thead>
+                <thead><tr><th>No</th><th>Nama</th><th>Divisi</th><th>Hari Hadir</th><th>UM/Hari</th><th>Total UM Kotor</th><th>Potongan KB (UM)</th><th>UM Bersih</th></tr></thead>
                 <tbody id="tbody-lap-um-bulan"></tbody>
               </table>
             </div>
@@ -1997,16 +1969,14 @@ select option { background:var(--dark3); }
     <div class="modal-title">👤 Tambah Karyawan</div>
     <div class="form-grid">
       <div class="form-group"><label>Nama Lengkap</label><input id="k-nama" type="text" placeholder="Nama lengkap karyawan"></div>
-      <div class="form-group"><label>NPK / ID Karyawan</label><input id="k-npk" type="text" placeholder="Contoh: CGK-001"><div class="form-note">Opsional — bisa diisi nanti</div></div>
       <div class="form-group"><label>Jabatan</label><input id="k-jabatan" type="text" placeholder="Contoh: Operator Mesin"></div>
       <div class="form-group"><label>Cabang</label>
         <select id="k-cabang">
-          <option value="Head Office">HO — Head Office</option>
-          <option value="Daan Mogot Baru">DMB — Daan Mogot Baru</option>
-          <option value="Citra Raya">CTR — Citra Raya</option>
-          <option value="Gading Serpong">GDS — Gading Serpong</option>
-          <option value="Bekasi">BKS</option>
-          <option value="CGK">CGK</option>
+          <option value="Daan Mogot Baru">Daan Mogot Baru</option>
+          <option value="Citra Raya">Citra Raya</option>
+          <option value="Gading Serpong">Gading Serpong</option>
+          <option value="Cengkareng">Cengkareng</option>
+          <option value="Bekasi">Bekasi</option>
         </select>
       </div>
       <div class="form-group"><label>No. HP</label><input id="k-hp" type="text" placeholder="08xx-xxxx-xxxx"></div>
@@ -2077,14 +2047,14 @@ select option { background:var(--dark3); }
       <div class="form-group"><label>NPK / ID Karyawan</label><input id="ek-npk" type="text" placeholder="Contoh: HO-001"></div>
       <div class="form-group"><label>Nama Lengkap</label><input id="ek-nama" type="text"></div>
       <div class="form-group"><label>Jabatan</label><input id="ek-jabatan" type="text"></div>
-      <div class="form-group"><label>Cabang</label>
+      <div class="form-group"><label>Divisi</label>
         <select id="ek-divisi">
           <option value="HO">HO — Head Office</option>
           <option value="DMB">DMB — Daan Mogot Baru</option>
           <option value="CTR">CTR — Citra Raya</option>
           <option value="GDS">GDS — Gading Serpong</option>
-          <option value="BKS">BKS</option>
-          <option value="CGK">CGK</option>
+          <option value="BKS">BKS — Bekasi</option>
+          <option value="CKG">CKG — Cengkareng</option>
         </select>
       </div>
       <div class="form-group"><label>Cabang</label><input id="ek-cabang" type="text"></div>
@@ -2377,9 +2347,7 @@ var ATURAN = {
   batasMalam:       '22:30', // bonus lembur malam
   bpjsKesehatan:    1,       // % dari gaji
   bpjsKetenagakerjaan: 2,    // % dari gaji
-  customDivisi: [], // [{kode:'XXX', nama:'Nama Cabang', warna:'#RRGGBB'}]
 };
-var DIVISI_WARNA = {HO:'#F5A800',DMB:'#2ECC71',CTR:'#3498DB',GDS:'#E74C3C',BKS:'#9B59B6',CGK:'#1ABC9C'};
 
 // Getter agar kode lama masih berjalan
 function getAturan() { return ATURAN; }
@@ -2396,7 +2364,6 @@ function syncAturanConst() {
   CUTI_TAHUNAN       = ATURAN.cutiTahunan;
   POTONGAN_PER_MENIT = ATURAN.potonganPerMenit;
   INSENTIF_KERAJINAN = ATURAN.insentifKerajinan;
-  if(document.readyState !== 'loading') applyCustomDivisi();
 }
 
 // ============ DATA ============
@@ -2453,21 +2420,21 @@ var db = {
     {id:49,npk:'202510183',nama:'Danang Firman Sasetyo',jabatan:'Deskprint',divisi:'GDS',cabang:'Gading Serpong',hp:'082116552164',email:'',gaji:1540000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2025-01-10',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
     {id:50,npk:'202511201',nama:'Yusuf Ilham',jabatan:'Deskprint',divisi:'GDS',cabang:'Gading Serpong',hp:'0895418237568',email:'',gaji:1740000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2025-11-24',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
     {id:51,npk:'202604200',nama:'Maulana Ayub Wahyudin',jabatan:'Deskprint',divisi:'GDS',cabang:'Gading Serpong',hp:'081369038280',email:'',gaji:1540000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2026-04-15',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
-    {id:52,npk:'202102026',nama:'Ardia Risti Arini',jabatan:'Admin & Kasir',divisi:'CGK',cabang:'CGK',hp:'081411005489',email:'',gaji:2880000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2026-02-02',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
-    {id:53,npk:'202209060',nama:'Muhamad Surahman',jabatan:'Operator Produksi',divisi:'CGK',cabang:'CGK',hp:'-',email:'',gaji:2170000,tunjangan:0,bpjs:0,upahLembur:6000,masuk:'2022-01-09',status:'Aktif',punyaCuti:'ya',umMode:'minggu',shift:1},
-    {id:54,npk:'202209061',nama:'Angga Rohmat',jabatan:'Deskprint',divisi:'CGK',cabang:'CGK',hp:'-',email:'',gaji:2570000,tunjangan:0,bpjs:0,upahLembur:6000,masuk:'2022-01-09',status:'Aktif',punyaCuti:'ya',umMode:'minggu',shift:1},
-    {id:55,npk:'202209062',nama:'Fadli Saputra',jabatan:'Kurir',divisi:'CGK',cabang:'CGK',hp:'-',email:'',gaji:2370000,tunjangan:0,bpjs:0,upahLembur:6000,masuk:'2022-01-09',status:'Aktif',punyaCuti:'ya',umMode:'minggu',shift:1},
-    {id:56,npk:'202306094',nama:'Sutisna',jabatan:'Operator Produksi',divisi:'CGK',cabang:'CGK',hp:'-',email:'',gaji:1660000,tunjangan:0,bpjs:0,upahLembur:6000,masuk:'2023-06-20',status:'Aktif',punyaCuti:'ya',umMode:'minggu',shift:1},
-    {id:57,npk:'202407128',nama:'Winda Lisnawati',jabatan:'Deskprint',divisi:'CGK',cabang:'CGK',hp:'085720894173',email:'',gaji:1970000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2024-01-07',status:'Aktif',punyaCuti:'ya',umMode:'minggu',shift:1},
-    {id:58,npk:'202501146',nama:'Annisa Dwi Rahmawati',jabatan:'Admin & Kasir',divisi:'CGK',cabang:'CGK',hp:'085892819550',email:'',gaji:1870000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2024-01-07',status:'Aktif',punyaCuti:'ya',umMode:'minggu',shift:1},
-    {id:59,npk:'202501147',nama:'M Nurul Adrian',jabatan:'Finishing',divisi:'CGK',cabang:'CGK',hp:'082298122526',email:'',gaji:940000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2025-10-06',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
-    {id:60,npk:'202506161',nama:'Carvent Reinhart Setiawan',jabatan:'Deskprint',divisi:'CGK',cabang:'CGK',hp:'081316467714',email:'',gaji:1660000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2025-04-07',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
-    {id:61,npk:'202506166',nama:'Faqih Turahman',jabatan:'Finishing',divisi:'CGK',cabang:'CGK',hp:'083187792335',email:'',gaji:740000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2026-02-02',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
-    {id:62,npk:'202506169',nama:'Yosa',jabatan:'Produksi Bengkel',divisi:'CGK',cabang:'CGK',hp:'-',email:'',gaji:3720000,tunjangan:0,bpjs:0,upahLembur:7000,masuk:'2023-01-05',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
-    {id:63,npk:'202507171',nama:'M Rifki Alfarizi',jabatan:'Supir Mobil Bengkel',divisi:'CGK',cabang:'CGK',hp:'088211595580',email:'',gaji:1970000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2025-06-27',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
-    {id:64,npk:'202507173',nama:'Sabda Christianadi',jabatan:'Operator Produksi & Design',divisi:'CGK',cabang:'CGK',hp:'088229777060',email:'',gaji:1970000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2025-07-28',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
-    {id:65,npk:'202510191',nama:'Eman Sulaeman',jabatan:'Produksi Bengkel',divisi:'CGK',cabang:'CGK',hp:'-',email:'',gaji:2040000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2025-01-11',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
-    {id:66,npk:'202502192',nama:'Wawan Wahyudi',jabatan:'Produksi Bengkel',divisi:'CGK',cabang:'CGK',hp:'089531918560',email:'',gaji:2040000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2026-02-18',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
+    {id:52,npk:'202102026',nama:'Ardia Risti Arini',jabatan:'Admin & Kasir',divisi:'CGK',cabang:'Cengkareng',hp:'081411005489',email:'',gaji:2880000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2026-02-02',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
+    {id:53,npk:'202209060',nama:'Muhamad Surahman',jabatan:'Operator Produksi',divisi:'CGK',cabang:'Cengkareng',hp:'-',email:'',gaji:2170000,tunjangan:0,bpjs:0,upahLembur:6000,masuk:'2022-01-09',status:'Aktif',punyaCuti:'ya',umMode:'minggu',shift:1},
+    {id:54,npk:'202209061',nama:'Angga Rohmat',jabatan:'Deskprint',divisi:'CGK',cabang:'Cengkareng',hp:'-',email:'',gaji:2570000,tunjangan:0,bpjs:0,upahLembur:6000,masuk:'2022-01-09',status:'Aktif',punyaCuti:'ya',umMode:'minggu',shift:1},
+    {id:55,npk:'202209062',nama:'Fadli Saputra',jabatan:'Kurir',divisi:'CGK',cabang:'Cengkareng',hp:'-',email:'',gaji:2370000,tunjangan:0,bpjs:0,upahLembur:6000,masuk:'2022-01-09',status:'Aktif',punyaCuti:'ya',umMode:'minggu',shift:1},
+    {id:56,npk:'202306094',nama:'Sutisna',jabatan:'Operator Produksi',divisi:'CGK',cabang:'Cengkareng',hp:'-',email:'',gaji:1660000,tunjangan:0,bpjs:0,upahLembur:6000,masuk:'2023-06-20',status:'Aktif',punyaCuti:'ya',umMode:'minggu',shift:1},
+    {id:57,npk:'202407128',nama:'Winda Lisnawati',jabatan:'Deskprint',divisi:'CGK',cabang:'Cengkareng',hp:'085720894173',email:'',gaji:1970000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2024-01-07',status:'Aktif',punyaCuti:'ya',umMode:'minggu',shift:1},
+    {id:58,npk:'202501146',nama:'Annisa Dwi Rahmawati',jabatan:'Admin & Kasir',divisi:'CGK',cabang:'Cengkareng',hp:'085892819550',email:'',gaji:1870000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2024-01-07',status:'Aktif',punyaCuti:'ya',umMode:'minggu',shift:1},
+    {id:59,npk:'202501147',nama:'M Nurul Adrian',jabatan:'Finishing',divisi:'CGK',cabang:'Cengkareng',hp:'082298122526',email:'',gaji:940000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2025-10-06',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
+    {id:60,npk:'202506161',nama:'Carvent Reinhart Setiawan',jabatan:'Deskprint',divisi:'CGK',cabang:'Cengkareng',hp:'081316467714',email:'',gaji:1660000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2025-04-07',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
+    {id:61,npk:'202506166',nama:'Faqih Turahman',jabatan:'Finishing',divisi:'CGK',cabang:'Cengkareng',hp:'083187792335',email:'',gaji:740000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2026-02-02',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
+    {id:62,npk:'202506169',nama:'Yosa',jabatan:'Produksi Bengkel',divisi:'CGK',cabang:'Cengkareng',hp:'-',email:'',gaji:3720000,tunjangan:0,bpjs:0,upahLembur:7000,masuk:'2023-01-05',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
+    {id:63,npk:'202507171',nama:'M Rifki Alfarizi',jabatan:'Supir Mobil Bengkel',divisi:'CGK',cabang:'Cengkareng',hp:'088211595580',email:'',gaji:1970000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2025-06-27',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
+    {id:64,npk:'202507173',nama:'Sabda Christianadi',jabatan:'Operator Produksi & Design',divisi:'CGK',cabang:'Cengkareng',hp:'088229777060',email:'',gaji:1970000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2025-07-28',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
+    {id:65,npk:'202510191',nama:'Eman Sulaeman',jabatan:'Produksi Bengkel',divisi:'CGK',cabang:'Cengkareng',hp:'-',email:'',gaji:2040000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2025-01-11',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
+    {id:66,npk:'202502192',nama:'Wawan Wahyudi',jabatan:'Produksi Bengkel',divisi:'CGK',cabang:'Cengkareng',hp:'089531918560',email:'',gaji:2040000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2026-02-18',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
     {id:67,npk:'201805004',nama:'Ronaldi Mbanimara',jabatan:'Kepala Cabang',divisi:'BKS',cabang:'Bekasi',hp:'082247870883',email:'',gaji:3720000,tunjangan:250000,bpjs:48000,upahLembur:6000,masuk:'2018-05-14',status:'Aktif',punyaCuti:'ya',umMode:'minggu',shift:1},
     {id:68,npk:'202211075',nama:'Iip Aji Nurli',jabatan:'Operator Produksi',divisi:'BKS',cabang:'Bekasi',hp:'082115930349',email:'',gaji:1970000,tunjangan:0,bpjs:0,upahLembur:6000,masuk:'2022-11-14',status:'Aktif',punyaCuti:'ya',umMode:'minggu',shift:1},
     {id:69,npk:'202510186',nama:'Rinar Tabana',jabatan:'Operator Produksi',divisi:'BKS',cabang:'Bekasi',hp:'081280040037',email:'',gaji:1540000,tunjangan:0,bpjs:0,upahLembur:5000,masuk:'2025-10-20',status:'Aktif',punyaCuti:'tidak',umMode:'minggu',shift:1},
@@ -2737,7 +2704,6 @@ function tambahKaryawan(){
   var ktpData = window._ktpBase64 || null;
   db.karyawan.push({
     id:nextId(db.karyawan), nama,
-    npk:document.getElementById('k-npk').value.trim(),
     jabatan:document.getElementById('k-jabatan').value,
     cabang:document.getElementById('k-cabang').value,
     hp:document.getElementById('k-hp').value,
@@ -2757,7 +2723,7 @@ function tambahKaryawan(){
   closeModal('modal-karyawan');
   renderKaryawan(); updatePeriodeOptions(); updateUMMingguOptions(); updateKaryawanSelects();
   showAlert('\u2705 Karyawan berhasil ditambahkan!');
-  ['k-nama','k-npk','k-jabatan','k-hp','k-email','k-gaji','k-tunjangan','k-masuk','k-um-default'].forEach(id=>document.getElementById(id).value='');
+  ['k-nama','k-jabatan','k-hp','k-email','k-gaji','k-tunjangan','k-masuk','k-um-default'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('k-lembur-malam-aktif').value='ya';
   clearKTP();
 }
@@ -3456,12 +3422,7 @@ function renderUM(){
 
   tb.innerHTML = rows.join('');
 
-  if(titleEl) {
-    var _tlabel = isMingguMode
-      ? new Date(mulai).toLocaleDateString('id-ID',{day:'numeric',month:'long'})+' – '+new Date(selesai).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})
-      : new Date(mulai).toLocaleDateString('id-ID',{month:'long',year:'numeric'});
-    titleEl.textContent = 'Total UM Periode ' + _tlabel;
-  }
+  if(titleEl) titleEl.textContent='Total UM Bulan '+new Date(periodeVal+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
   if(sumEl) sumEl.innerHTML='<div class="summary-row">'
     +'<span>Periode: <strong>'+new Date(mulai).toLocaleDateString('id-ID',{day:'numeric',month:'short'})+' — '+new Date(selesai).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'})+'</strong></span>'
     +'<span style="margin-left:16px;">Total UM Bersih: <strong>'+fRp(totalUMBersih)+'</strong></span>'
@@ -3602,7 +3563,7 @@ function buatSlipUM(kId, periodeVal) {
     +'<tr><td style="color:#888;width:120px;padding:2px 0;">Nama</td><td style="padding:2px 0;">: <strong>'+k.nama+'</strong></td></tr>'
     +'<tr><td style="color:#888;padding:2px 0;">NPK</td><td style="padding:2px 0;">: '+(k.npk||'-')+'</td></tr>'
     +'<tr><td style="color:#888;padding:2px 0;">Jabatan</td><td style="padding:2px 0;">: '+k.jabatan+'</td></tr>'
-    +'<tr><td style="color:#888;padding:2px 0;">Cabang</td><td style="padding:2px 0;">: '+k.divisi+' / '+k.cabang+'</td></tr>'
+    +'<tr><td style="color:#888;padding:2px 0;">Divisi</td><td style="padding:2px 0;">: '+k.divisi+' / '+k.cabang+'</td></tr>'
     +'<tr><td style="color:#888;padding:2px 0;">Periode</td><td style="padding:2px 0;">: '+periodeLabel+'</td></tr>'
     +'<tr><td style="color:#888;padding:2px 0;">Tgl Bayar</td><td style="padding:2px 0;">: <strong>'+tanggalBayar+'</strong></td></tr>'
     +'</table></div>'
@@ -3614,7 +3575,7 @@ function buatSlipUM(kId, periodeVal) {
     +(lemburPeriode>0?'<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:12px;margin-top:4px;color:#E67E22;"><span>Upah Lembur ('+lemburCount+' sesi)</span><strong>'+fRp(lemburPeriode)+'</strong></div>':'')
     +'</div>'
     +'<div style="background:#111;color:white;padding:12px 16px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
-    +'<div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;">Total Dibayar</div>'
+    +'<div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;">Total Diterima</div>'
     +'<div style="font-weight:900;font-size:22px;color:#F5A800;">'+fRp(totalBayar)+'</div></div>'
     +(punyaCuti!=='ya'&&alpha>0?'<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:8px;font-size:11px;color:#856404;margin-bottom:10px;">\u26a0 '+alpha+' hari alpha - UM dipotong</div>':'')
     +'<div style="display:flex;justify-content:space-between;margin-top:16px;">'
@@ -3684,7 +3645,7 @@ function downloadSlipUMExcel(kId,periodeVal){
   var fmt=function(s){return new Date(s).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});};
   var rows=[
     ['SLIP UANG MAKAN - RUANGPRINT'],['Periode: '+fmt(per.mulai)+' s/d '+fmt(per.selesai)],[],
-    ['Nama',k.nama],['NPK',k.npk||'-'],['Jabatan',k.jabatan],['Cabang',k.divisi+' / '+k.cabang],[],
+    ['Nama',k.nama],['NPK',k.npk||'-'],['Jabatan',k.jabatan],['Divisi',k.divisi+' / '+k.cabang],[],
     ['DETAIL KEHADIRAN'],['Tanggal','Hari','Status','Check In','Check Out','UM'],
   ];
   var absW=db.absensi.filter(function(a){return a.karyawanId===k.id&&a.tanggal>=per.mulai&&a.tanggal<=per.selesai;});
@@ -3716,7 +3677,7 @@ function downloadSlipUMExcel(kId,periodeVal){
 function exportUMCSV(){
   const periodeVal=umSelectedJumat||(document.getElementById('umMinggu')?document.getElementById('umMinggu').value:'');
   if(!periodeVal){showAlert('Pilih periode di date picker dulu!','#E74C3C');return;}
-  let csv='No,Nama,Cabang,Cabang,Hari Hadir,Alpha,Punya Cuti,UM Kotor,Potongan Kasbon,UM Bersih,Lembur,Total Dibayar,Keterangan\n';
+  let csv='No,Nama,Divisi,Cabang,Hari Hadir,Alpha,Punya Cuti,UM Kotor,Potongan Kasbon,UM Bersih,Lembur,Total Dibayar,Keterangan\n';
   let no=0;
   db.karyawan.filter(k=>k.status==='Aktif').forEach(k=>{
     let hadir,alpha,umDiterima,ket,punyaCuti;
@@ -3748,7 +3709,7 @@ function exportExcelUM() {
   }
 
   const wb = XLSX.utils.book_new();
-  const DIVISI_LIST = getAllDivisiKodes();
+  const DIVISI_LIST = ['HO','DMB','CTR','GDS','BKS','CKG'];
   const allRows = [];
 
   DIVISI_LIST.forEach(div => {
@@ -3756,11 +3717,11 @@ function exportExcelUM() {
     if(!karDiv.length) return;
 
     const rows = [];
-    const divNama = (function(){var r={};getAllDivisiKodes().forEach(function(k){r[k]=getDivisiNama(k);});return r;})();
+    const divNama = {HO:'HEAD OFFICE',DMB:'DAAN MOGOT BARU',CTR:'CITRA RAYA',GDS:'GADING SERPONG',BKS:'BEKASI',CKG:'CENGKARENG'};
     rows.push([`PEMBAYARAN UM + LEMBUR MINGGUAN - ${divNama[div] || div}`]);
     rows.push([`Periode : ${periodeLabel}`,'','','',`Dibagikan : ${umMode==='minggu'?'Hari Kamis':'Bersama Gaji'}`]);
     rows.push([]);
-    rows.push(['No','Nama Karyawan','Cabang','Hari Hadir','Alpha','Hak Cuti','UM Kotor','Potongan Kas Bon','UM Bersih','Upah Lembur','TOTAL DIBAYAR','Keterangan']);
+    rows.push(['No','Nama Karyawan','Divisi','Hari Hadir','Alpha','Hak Cuti','UM Kotor','Potongan Kas Bon','UM Bersih','Upah Lembur','TOTAL DIBAYAR','Keterangan']);
 
     let tUM=0, tLembur=0, tTotal=0;
 
@@ -3795,10 +3756,10 @@ function exportExcelUM() {
 
   // Sheet REKAP SEMUA
   const rowsAll=[];
-  rowsAll.push([`REKAP TOTAL UM + LEMBUR SEMUA CABANG`]);
+  rowsAll.push([`REKAP TOTAL UM + LEMBUR SEMUA DIVISI`]);
   rowsAll.push([`Periode : ${periodeLabel}`,'','','',`Mode : ${umMode==='minggu'?'Per Minggu (Jum→Kam)':'Per Bulan'}`]);
   rowsAll.push([]);
-  rowsAll.push(['No','Nama','Cabang','Hadir','Alpha','UM Kotor','Potong KB','UM Bersih','Lembur','TOTAL','Ket']);
+  rowsAll.push(['No','Nama','Divisi','Hadir','Alpha','UM Kotor','Potong KB','UM Bersih','Lembur','TOTAL','Ket']);
 
   let gUM=0,gLembur=0,gTotal=0;
   allRows.forEach((r,i)=>{
@@ -4180,7 +4141,7 @@ function printDetailLembur(){
 
     + '<div class="info">'
       + '<div class="info-cell"><div class="info-label">Nama Karyawan</div><div class="info-val">'+d.nama+'</div></div>'
-      + '<div class="info-cell"><div class="info-label">Cabang / Cabang</div><div class="info-val">'+d.divisi+'</div></div>'
+      + '<div class="info-cell"><div class="info-label">Divisi / Cabang</div><div class="info-val">'+d.divisi+'</div></div>'
       + '<div class="info-cell"><div class="info-label">Periode</div><div class="info-val">'+d.periodeLabel+'</div></div>'
       + '<div class="info-cell"><div class="info-label">Tarif Lembur</div><div class="info-val">Rp '+(+upahPerJam).toLocaleString('id-ID')+' / jam</div></div>'
     + '</div>'
@@ -4246,9 +4207,9 @@ function exportLaporanCuti() {
   var list   = db.karyawan.filter(function(k){return k.status==='Aktif'&&(!divisi||k.divisi===divisi);});
   var wb     = XLSX.utils.book_new();
   var rows   = [
-    ['LAPORAN CUTI KARYAWAN - RUANGPRINT - '+tahun+' | '+(divisi||'Semua Cabang')],
+    ['LAPORAN CUTI KARYAWAN - RUANGPRINT - '+tahun+' | '+(divisi||'Semua Divisi')],
     ['Dibuat: '+new Date().toLocaleString('id-ID')],[],
-    ['No','NPK','Nama','Cabang','Jabatan','Hak Cuti/Tahun','Cuti Terpakai','Sisa Cuti','Detail Tanggal']
+    ['No','NPK','Nama','Divisi','Jabatan','Hak Cuti/Tahun','Cuti Terpakai','Sisa Cuti','Detail Tanggal']
   ];
   list.forEach(function(k,i){
     var cutiK = db.cuti.filter(function(c){return c.karyawanId===k.id&&((c.tanggalMulai||c.mulai||'')).startsWith(tahun)&&c.status==='Disetujui';});
@@ -4298,7 +4259,7 @@ function printLaporanCuti() {
     return s + db.cuti.filter(function(c){return c.karyawanId===k.id&&((c.tanggalMulai||c.mulai||'')).startsWith(tahun)&&c.status==='Disetujui';}).reduce(function(ss,c){return ss+(+c.jumlahHari||+c.hari||1);},0);
   },0);
 
-  var content = pdfHeader('LAPORAN CUTI KARYAWAN','Tahun: '+tahun+' | Cabang: '+(divisi||'Semua'),'Total: '+list.length+' karyawan')
+  var content = pdfHeader('LAPORAN CUTI KARYAWAN','Tahun: '+tahun+' | Divisi: '+(divisi||'Semua'),'Total: '+list.length+' karyawan')
     +'<div class="pdf-stats">'
     +'<div class="pdf-stat"><div class="pdf-stat-label">Total Hari Cuti Terpakai</div><div class="pdf-stat-val" style="color:#e67e22;">'+totalCuti+' hari</div></div>'
     +'<div class="pdf-stat"><div class="pdf-stat-label">Karyawan Aktif</div><div class="pdf-stat-val">'+list.length+'</div></div>'
@@ -4457,7 +4418,7 @@ function exportTemplateAbsensi(mode) {
       ['TEMPLATE ABSENSI MINGGUAN - RUANGPRINT (Cabang)'],
       ['Periode: ' + jumat.toLocaleDateString('id-ID') + ' (Jumat) s/d ' + kamis.toLocaleDateString('id-ID') + ' (Kamis)'],
       ['S1: 08:30-17:30 | S2: 12:00-21:00 | Lembur = checkout > jam standar | Import: Absensi → Import Mesin Absen'],
-      ['Tanggal', 'Nama', 'Cabang', 'Check In', 'Check Out', 'Menit Telat', 'Lembur Menit', 'Status', 'Keterangan'],
+      ['Tanggal', 'Nama', 'Divisi', 'Check In', 'Check Out', 'Menit Telat', 'Lembur Menit', 'Status', 'Keterangan'],
     ];
 
     // Generate baris untuk setiap karyawan per hari dalam periode
@@ -4490,7 +4451,7 @@ function exportTemplateAbsensi(mode) {
     var rows = [
       ['TEMPLATE ABSENSI HARIAN - RUANGPRINT'],
       ['S1: 08:30-17:30  |  S2: 12:00-21:00  |  Lembur = checkout > jam standar  |  Import: Absensi -> Import Mesin Absen'],
-      ['Tanggal', 'Nama', 'Cabang', 'Check In', 'Check Out', 'Menit Telat', 'Lembur Menit', 'Status', 'Keterangan'],
+      ['Tanggal', 'Nama', 'Divisi', 'Check In', 'Check Out', 'Menit Telat', 'Lembur Menit', 'Status', 'Keterangan'],
     ];
 
     aktif.forEach(function(k) {
@@ -4515,7 +4476,7 @@ function exportTemplateAbsensi(mode) {
   // ===== Sheet Referensi Karyawan =====
   var rows2 = [
     ['DAFTAR KARYAWAN - ' + (isMinggu ? 'CABANG (Mingguan)' : 'HO (Bulanan)')],
-    ['No','NPK','Nama Karyawan (ketik PERSIS ini)', 'Cabang', 'Jabatan', 'Shift'],
+    ['No','NPK','Nama Karyawan (ketik PERSIS ini)', 'Divisi', 'Jabatan', 'Shift'],
   ];
   if(aktif.length === 0) {
     rows2.push(['', '', '\u26A0 Tidak ada karyawan ' + (isMinggu?'mingguan':'bulanan') + '!', '', '', '']);
@@ -4535,7 +4496,7 @@ function exportTemplateAbsensi(mode) {
     ['KOLOM', 'FORMAT', 'CONTOH', 'KETERANGAN'],
     ['Tanggal',    'YYYY-MM-DD', '2026-04-01', 'Format tanggal wajib seperti ini'],
     ['Nama',       'Teks',       'Suheri',     'Harus PERSIS sama dengan nama di Data Karyawan'],
-    ['Cabang',     'Singkatan',  'CTR',        'HO / DMB / CTR / GDS / BKS / CGK / ..custom..'],
+    ['Divisi',     'Singkatan',  'CTR',        'HO / DMB / CTR / GDS / BKS / CKG'],
     ['Check In',   'HH:MM',      '08:30',      'Shift 1: 08:30 | Shift 2: 12:00 | Kosongkan jika Alpha'],
     ['Check Out',  'HH:MM',      '17:30',      'Shift 1: 17:30 | Shift 2: 21:00 | Kosongkan jika Alpha'],
     ['Menit Telat','Angka',      '15',         'Isi 0 jika tidak telat'],
@@ -4564,7 +4525,7 @@ function exportTemplateAbsensi(mode) {
   var rows = [
     ['TEMPLATE ABSENSI HARIAN - RUANGPRINT'],
     ['\u2B07 Isi data mulai baris 4. Nama karyawan HARUS persis sama dengan Data Karyawan di RuangHRD'],
-    ['Tanggal', 'Nama', 'Cabang', 'Check In', 'Check Out', 'Menit Telat', 'Status', 'Keterangan'],
+    ['Tanggal', 'Nama', 'Divisi', 'Check In', 'Check Out', 'Menit Telat', 'Status', 'Keterangan'],
   ];
 
   // Tambah baris kosong sebanyak karyawan aktif × 30 hari
@@ -4604,7 +4565,7 @@ function exportTemplateAbsensi(mode) {
   // ===== Sheet 2: Daftar Karyawan Aktif (referensi nama) =====
   var rows2 = [
     ['DAFTAR KARYAWAN AKTIF - Referensi Nama untuk Pengisian Absensi'],
-    ['No','NPK','Nama Karyawan (ketik PERSIS ini)', 'Cabang', 'Jabatan', 'Shift'],
+    ['No','NPK','Nama Karyawan (ketik PERSIS ini)', 'Divisi', 'Jabatan', 'Shift'],
   ];
   var aktifAll = db.karyawan.filter(function(k){ return k.status === 'Aktif'; });
   if(aktifAll.length === 0) {
@@ -4625,7 +4586,7 @@ function exportTemplateAbsensi(mode) {
     ['KOLOM', 'FORMAT', 'CONTOH', 'KETERANGAN'],
     ['Tanggal',    'YYYY-MM-DD', '2026-04-01', 'Format tanggal wajib seperti ini'],
     ['Nama',       'Teks',       'Suheri',     'Harus PERSIS sama dengan nama di Data Karyawan'],
-    ['Cabang',     'Singkatan',  'CTR',        'HO / DMB / CTR / GDS / BKS / CGK / ..custom..'],
+    ['Divisi',     'Singkatan',  'CTR',        'HO / DMB / CTR / GDS / BKS / CKG'],
     ['Check In',   'HH:MM',      '08:30',      'Shift 1: 08:30 | Shift 2: 12:00 | Kosongkan jika Alpha'],
     ['Check Out',  'HH:MM',      '17:30',      'Shift 1: 17:30 | Shift 2: 21:00 | Kosongkan jika Alpha'],
     ['Menit Telat','Angka',      '15',         'Isi 0 jika tidak telat, atau otomatis dihitung saat import'],
@@ -5120,7 +5081,7 @@ function exportLaporanTelat(){
 
   const rows=Object.values(map).map((r,i)=>[i+1,r.nama,r.divisi,r.menit,Object.keys(r.dates).length]);
   const wb=XLSX.utils.book_new();
-  const ws=XLSX.utils.aoa_to_sheet([['No','Nama','Cabang','Total Menit Telat','Jumlah Hari Telat'],...rows]);
+  const ws=XLSX.utils.aoa_to_sheet([['No','Nama','Divisi','Total Menit Telat','Jumlah Hari Telat'],...rows]);
   XLSX.utils.book_append_sheet(wb,ws,'Telat');
   XLSX.writeFile(wb,'Laporan_Telat_'+periode+'.xlsx');
   showAlert('✅ Laporan Telat berhasil diexport');
@@ -5136,8 +5097,8 @@ function printLaporanTelat(){
     if(!tds.length) return '';
     return '<tr><td>'+tds[0].innerText+'</td><td>'+tds[1].innerText+'</td><td>'+tds[2].innerText+'</td><td>'+tds[3].innerText+'</td><td>'+tds[4].innerText+'</td></tr>';
   }).join('');
-  const html = pdfHeader('LAPORAN TELAT KARYAWAN','Periode: '+periode+' | Cabang: '+divisi,'')
-    +'<table class="pdf-table"><thead><tr><th>No</th><th>Nama</th><th>Cabang</th><th>Total Menit Telat</th><th>Jumlah Hari Telat</th></tr></thead><tbody>'+bodyRows+'</tbody></table>'
+  const html = pdfHeader('LAPORAN TELAT KARYAWAN','Periode: '+periode+' | Divisi: '+divisi,'')
+    +'<table class="pdf-table"><thead><tr><th>No</th><th>Nama</th><th>Divisi</th><th>Total Menit Telat</th><th>Jumlah Hari Telat</th></tr></thead><tbody>'+bodyRows+'</tbody></table>'
     +pdfFooter('Periode: '+periode);
   doPrint(html);
 }
@@ -5220,7 +5181,7 @@ function exportLaporanKasbon() {
     ['LAPORAN KAS BON - RUANGPRINT'],
     ['Dibuat: '+new Date().toLocaleString('id-ID')],
     [],
-    ['No','Tanggal','Nama','Cabang','Jumlah Pinjaman','Cicilan','Via','Sisa Hutang','Keterangan','Status']
+    ['No','Tanggal','Nama','Divisi','Jumlah Pinjaman','Cicilan','Via','Sisa Hutang','Keterangan','Status']
   ];
   data.forEach(function(k,i){
     var kar = db.karyawan.find(function(x){ return x.id===k.karyawanId; });
@@ -5253,9 +5214,9 @@ function printLaporanKasbon() {
     +'<div class="pdf-stat"><div class="pdf-stat-label">Karyawan Aktif KB</div><div class="pdf-stat-val">'+aktif.length+' orang</div></div>'
     +'</div>';
 
-  var html = pdfHeader('LAPORAN KAS BON','Status: '+statusF+' | Cabang: '+divisiF,'')
+  var html = pdfHeader('LAPORAN KAS BON','Status: '+statusF+' | Divisi: '+divisiF,'')
     +statsHtml
-    +'<table class="pdf-table"><thead><tr><th>No</th><th>Tanggal</th><th>Nama</th><th>Cabang</th><th>Pinjaman</th><th>Cicilan</th><th>Via</th><th>Sisa Hutang</th><th>Keterangan</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    +'<table class="pdf-table"><thead><tr><th>No</th><th>Tanggal</th><th>Nama</th><th>Divisi</th><th>Pinjaman</th><th>Cicilan</th><th>Via</th><th>Sisa Hutang</th><th>Keterangan</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>'
     +pdfFooter('Dicetak: '+new Date().toLocaleString('id-ID'));
   doPrint(html);
 }
@@ -5335,7 +5296,7 @@ function exportLaporanLembur() {
     ['LAPORAN LEMBUR KARYAWAN - RUANGPRINT'],
     ['Periode: '+label, 'Dibuat: '+new Date().toLocaleString('id-ID')],
     [],
-    ['No','Tanggal','Nama','Cabang','Mulai','Selesai','Jam Total','Upah/Jam','Bonus Malam','Total Upah','Status']
+    ['No','Tanggal','Nama','Divisi','Mulai','Selesai','Jam Total','Upah/Jam','Bonus Malam','Total Upah','Status']
   ];
   data.forEach(function(l,i){
     rows.push([i+1,l.tanggal||'-',l.nama,l.divisi||'-',l.mulai||'-',l.selesai||'-',(+l.jamTotal||0).toFixed(1),l.upahPerJam||0,l.bonusMalam||0,l.totalUpah||0,l.status]);
@@ -5372,9 +5333,9 @@ function printLaporanLembur() {
     return '<tr>'+cells+'</tr>';
   }).join('');
 
-  var html = pdfHeader('LAPORAN LEMBUR KARYAWAN','Periode: '+label+' | Cabang: '+divisiF+' | Status: '+statusF,'')
+  var html = pdfHeader('LAPORAN LEMBUR KARYAWAN','Periode: '+label+' | Divisi: '+divisiF+' | Status: '+statusF,'')
     +statsHtml
-    +'<table class="pdf-table"><thead><tr><th>No</th><th>Tanggal</th><th>Nama</th><th>Cabang</th><th>Mulai</th><th>Selesai</th><th>Jam</th><th>Upah/Jam</th><th>Bonus Malam</th><th>Total Upah</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    +'<table class="pdf-table"><thead><tr><th>No</th><th>Tanggal</th><th>Nama</th><th>Divisi</th><th>Mulai</th><th>Selesai</th><th>Jam</th><th>Upah/Jam</th><th>Bonus Malam</th><th>Total Upah</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>'
     +pdfFooter('Periode: '+label);
   doPrint(html);
 }
@@ -5448,7 +5409,7 @@ function exportLaporanUMBulanan() {
     ['LAPORAN UANG MAKAN (UM) BULANAN - RUANGPRINT'],
     ['Periode: '+label,'Dibuat: '+new Date().toLocaleString('id-ID')],
     [],
-    ['No','Nama','Cabang','Hari Hadir','UM/Hari','Total UM Kotor','Potongan KB (UM)','UM Bersih']
+    ['No','Nama','Divisi','Hari Hadir','UM/Hari','Total UM Kotor','Potongan KB (UM)','UM Bersih']
   ];
   aktif.forEach(function(k,i){
     var abs = db.absensi.filter(function(a){return a.karyawanId===k.id&&(a.tanggal||'').startsWith(periode);});
@@ -5494,9 +5455,9 @@ function printLaporanUMBulanan() {
     return '<tr>'+cells+'</tr>';
   }).join('');
 
-  var html = pdfHeader('LAPORAN UANG MAKAN (UM) BULANAN','Periode: '+label+' | Cabang: '+divisiF,'Total: '+aktif.length+' karyawan')
+  var html = pdfHeader('LAPORAN UANG MAKAN (UM) BULANAN','Periode: '+label+' | Divisi: '+divisiF,'Total: '+aktif.length+' karyawan')
     +statsHtml
-    +'<table class="pdf-table"><thead><tr><th>No</th><th>Nama</th><th>Cabang</th><th>Hari Hadir</th><th>UM/Hari</th><th>UM Kotor</th><th>Potongan KB</th><th>UM Bersih</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    +'<table class="pdf-table"><thead><tr><th>No</th><th>Nama</th><th>Divisi</th><th>Hari Hadir</th><th>UM/Hari</th><th>UM Kotor</th><th>Potongan KB</th><th>UM Bersih</th></tr></thead><tbody>'+rows+'</tbody></table>'
     +pdfFooter('Periode: '+label);
   doPrint(html);
 }
@@ -5524,7 +5485,7 @@ function exportLaporanAbsensi() {
     ['LAPORAN ABSENSI BULANAN - RUANGPRINT'],
     ['Periode: '+label, '', 'Dibuat: '+new Date().toLocaleString('id-ID')],
     [],
-    ['No','NPK','Nama','Cabang','Jabatan','Hadir','Sakit','Izin','Alpha','Total Hari Kerja','% Kehadiran','Terlambat (menit)','Lembur (jam)','Sisa Cuti']
+    ['No','NPK','Nama','Divisi','Jabatan','Hadir','Sakit','Izin','Alpha','Total Hari Kerja','% Kehadiran','Terlambat (menit)','Lembur (jam)','Sisa Cuti']
   ];
   db.karyawan.filter(function(k){return k.status==='Aktif';}).forEach(function(k,i){
     const abs = db.absensi.filter(function(a){return a.karyawanId===k.id&&a.tanggal.startsWith(periode);});
@@ -5552,13 +5513,13 @@ function exportLaporanGaji() {
   const label = (function(p){var s=p.split('-');return new Date(+s[0],+s[1]-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});})(periode);
   const wb = XLSX.utils.book_new();
 
-  // Sheet per cabang
-  const divisiList = getAllDivisiKodes();
+  // Sheet per divisi
+  const divisiList = ['HO','DMB','CTR','GDS','BKS','CKG'];
   let allRows = [
     ['LAPORAN GAJI BULANAN - RUANGPRINT'],
     ['Periode: '+label,'','Dibuat: '+new Date().toLocaleString('id-ID')],
     [],
-    ['No','NPK','Nama','Cabang','Gaji Pokok','Tunj.Jabatan','Insentif','UM','Lembur','BPJS','Kasbon','Telat','TOTAL']
+    ['No','NPK','Nama','Divisi','Gaji Pokok','Tunj.Jabatan','Insentif','UM','Lembur','BPJS','Kasbon','Telat','TOTAL']
   ];
   let grand=0;
   db.karyawan.filter(function(k){return k.status==='Aktif';}).forEach(function(k,i){
@@ -5571,7 +5532,7 @@ function exportLaporanGaji() {
 
   const ws=XLSX.utils.aoa_to_sheet(allRows);
   ws['!cols']=[{wch:4},{wch:10},{wch:28},{wch:8},{wch:14},{wch:12},{wch:12},{wch:12},{wch:12},{wch:10},{wch:10},{wch:10},{wch:14}];
-  XLSX.utils.book_append_sheet(wb,ws,'Semua Cabang');
+  XLSX.utils.book_append_sheet(wb,ws,'Semua Divisi');
 
   XLSX.writeFile(wb,'Gaji_'+periode+'.xlsx');
   showAlert('✅ Laporan Gaji berhasil didownload!');
@@ -5592,7 +5553,7 @@ function exportLaporanUM() {
     ['LAPORAN UM + LEMBUR MINGGUAN - RUANGPRINT'],
     ['Periode: '+label,'','Dibuat: '+new Date().toLocaleString('id-ID')],
     [],
-    ['No','NPK','Nama','Cabang','Hari Hadir','Alpha','UM Kotor','Potongan KB','UM Bersih','Upah Lembur','TOTAL DIBAYAR']
+    ['No','NPK','Nama','Divisi','Hari Hadir','Alpha','UM Kotor','Potongan KB','UM Bersih','Upah Lembur','TOTAL DIBAYAR']
   ];
 
   let totalUM=0, totalLembur=0, grandTotal=0;
@@ -5631,7 +5592,7 @@ function exportLaporanOffboarding() {
   const rows = [
     ['LAPORAN OFFBOARDING - RUANGPRINT - '+tahun],
     ['Dibuat: '+new Date().toLocaleString('id-ID')],[],
-    ['No','NPK','Nama','Cabang','Jabatan','Tgl Masuk','Tgl Resign','Masa Kerja','Alasan','Sisa Kasbon','Catatan']
+    ['No','NPK','Nama','Divisi','Jabatan','Tgl Masuk','Tgl Resign','Masa Kerja','Alasan','Sisa Kasbon','Catatan']
   ];
   resigned.forEach(function(k,i){
     var masaKerja='-';
@@ -5676,7 +5637,7 @@ function exportLaporanTahunan() {
   XLSX.utils.book_append_sheet(wb,ws1,'Ringkasan Bulanan');
 
   // Sheet 2: Data karyawan aktif
-  const rowsKar=[['No','NPK','Nama','Cabang','Jabatan','Gaji Pokok','Tgl Masuk','Hak Cuti','Sisa Cuti']];
+  const rowsKar=[['No','NPK','Nama','Divisi','Jabatan','Gaji Pokok','Tgl Masuk','Hak Cuti','Sisa Cuti']];
   db.karyawan.filter(function(k){return k.status==='Aktif';}).forEach(function(k,i){
     rowsKar.push([i+1,k.npk||'-',k.nama,k.divisi||'-',k.jabatan,k.gaji,k.masuk||'-',k.punyaCuti,getSisaCuti(k.id)]);
   });
@@ -5737,7 +5698,7 @@ function renderDashboard(){
     elNotif.innerHTML=notifs.join('');
   }
 
-  // Cabang chart
+  // Divisi chart
   var elDivisi=document.getElementById('dash-divisi-chart'); 
   if(elDivisi){
     var divisiData={};
@@ -5811,21 +5772,7 @@ function updateKaryawanSelects(){
 
 // ============ SEARCHABLE KARYAWAN PICKER ============
 var PICKER_IDS = ['a-karyawan','l-karyawan'];
-var BASE_DIVISI_KODES = ['HO','DMB','CTR','GDS','BKS','CGK'];
-function getAllDivisiKodes(){var base=['HO','DMB','CTR','GDS','BKS','CGK'];var x=((ATURAN&&ATURAN.customDivisi)||[]).map(function(d){return d.kode;});return base.concat(x);}
-function getDivisiNama(k){var b={HO:'HEAD OFFICE',DMB:'DAAN MOGOT BARU',CTR:'CITRA RAYA',GDS:'GADING SERPONG',BKS:'BEKASI',CGK:'CGK — CENGKARENG'};if(b[k])return b[k];var c=(ATURAN.customDivisi||[]).find(function(d){return d.kode===k;});return c?c.nama.toUpperCase():k;}
-function getDivisiLabel(k){var b={HO:'HO — Head Office',DMB:'DMB — Daan Mogot Baru',CTR:'CTR — Citra Raya',GDS:'GDS — Gading Serpong',BKS:'BKS',CGK:'CGK'};if(b[k])return b[k];var c=(ATURAN.customDivisi||[]).find(function(d){return d.kode===k;});return c?k+' — '+c.nama:k;}
-function applyCustomDivisi(){
-  if(!ATURAN.customDivisi||!ATURAN.customDivisi.length)return;
-  if(typeof DIVISI_WARNA!=='undefined')ATURAN.customDivisi.forEach(function(d){if(!DIVISI_WARNA[d.kode])DIVISI_WARNA[d.kode]=d.warna||'#607D8B';});
-  var ids=['filterAbsensiDivisi','filterLemburDivisi','filterUMDivisi','filterKasbonDivisi','gajiFilterDivisi','slipFilterDivisi','filterCutiDivisi','asst-divisi','lap-absen-divisi','lap-gaji-divisi','lap-um-divisi','lap-ob-divisi','lap-telat-divisi','lap-cuti-divisi','lap-tahunan-divisi','lap-kasbon-divisi','lap-lembur-divisi','lap-um-bulan-divisi','ek-divisi'];
-  ATURAN.customDivisi.forEach(function(d){
-    var kode=d.kode,label=getDivisiLabel(kode);
-    ids.forEach(function(id){var sel=document.getElementById(id);if(!sel||sel.querySelector('option[value="'+kode+'"]'))return;var o=document.createElement('option');o.value=kode;o.textContent=label;sel.appendChild(o);});
-    var kc=document.getElementById('k-cabang');if(kc&&!kc.querySelector('option[value="'+kode+'"]')){var o2=document.createElement('option');o2.value=kode;o2.textContent=label;kc.appendChild(o2);}
-  });
-  if(document.getElementById('divisi-mgmt-list'))renderDivisiMgmtList();
-}
+var DIVISI_WARNA = {HO:'#F5A800',DMB:'#2ECC71',CTR:'#3498DB',GDS:'#E74C3C',BKS:'#9B59B6',CKG:'#1ABC9C'};
 
 function buildDropdownItems(searchQ, pickerId) {
   const q = (searchQ||'').toLowerCase().trim();
@@ -5847,7 +5794,7 @@ function buildDropdownItems(searchQ, pickerId) {
   });
 
   let html = '';
-  const divOrder = getAllDivisiKodes();
+  const divOrder = ['HO','DMB','CTR','GDS','BKS','CKG'];
   divOrder.forEach(div => {
     if(!byDiv[div]) return;
     html += `<div class="kd-group-header">${div} — ${byDiv[div][0].cabang}</div>`;
@@ -6021,7 +5968,7 @@ var HARI_LIBUR_NASIONAL = [
 
 
 function isHariLibur(dateStr) {
-  return Array.isArray(HARI_LIBUR_NASIONAL) && HARI_LIBUR_NASIONAL.includes(dateStr);
+  return HARI_LIBUR_NASIONAL.includes(dateStr);
 }
 function isHariMinggu(dateStr) {
   return new Date(dateStr).getDay() === 0;
@@ -6034,15 +5981,6 @@ function toggleDatePicker() {
   const dp = document.getElementById('um-date-picker');
   if(!dp) return;
   if(dp.style.display==='none') {
-    // Position fixed relative to button to avoid overflow:hidden clipping
-    const btn = document.getElementById('um-date-btn');
-    if(btn) {
-      const rect = btn.getBoundingClientRect();
-      dp.style.position = 'fixed';
-      dp.style.top = (rect.bottom + 4) + 'px';
-      dp.style.left = rect.left + 'px';
-      dp.style.right = 'auto';
-    }
     dp.style.display='block';
     renderDatePicker();
   } else {
@@ -6058,54 +5996,38 @@ function dpNav(dir) {
 }
 
 function renderDatePicker() {
-  var BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-  document.getElementById('dp-month-label').textContent = BULAN[dpMonth] + ' ' + dpYear;
-  var grid = document.getElementById('dp-grid');
-  if(!grid) { console.error('dp-grid not found'); return; }
-  var today = todayStr();
-  var html = '';
+  const BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  document.getElementById('dp-month-label').textContent = `${BULAN[dpMonth]} ${dpYear}`;
+  const grid = document.getElementById('dp-grid');
+  const today = todayStr();
 
-  // Day name headers - fully inline styled
-  var dayNames = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
-  for(var di=0; di<dayNames.length; di++) {
-    var h = dayNames[di];
-    var col = h==='Min' ? '#E74C3C' : '#888888';
-    html += '<div style="text-align:center;font-size:11px;color:'+col+';padding:3px 0;font-weight:600;">'+h+'</div>';
+  let html = '';
+  // Header hari
+  ['Min','Sen','Sel','Rab','Kam','Jum','Sab'].forEach(h => {
+    html += `<div class="dp-day-name" style="${h==='Min'?'color:var(--red)':''}">${h}</div>`;
+  });
+
+  const firstDay = new Date(dpYear, dpMonth, 1).getDay();
+  const daysInMonth = new Date(dpYear, dpMonth+1, 0).getDate();
+
+  for(let i=0; i<firstDay; i++) html += '<div class="dp-day dp-empty"></div>';
+
+  for(let d=1; d<=daysInMonth; d++) {
+    const ds = `${dpYear}-${String(dpMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isSun = new Date(ds).getDay()===0;
+    const isHol = isHariLibur(ds);
+    const isTod = ds===today;
+    const isSel = ds===dpSelectedDate;
+    let cls = 'dp-day';
+    if(isSun) cls += ' dp-sunday';
+    else if(isHol) cls += ' dp-holiday';
+    if(isTod) cls += ' dp-today';
+    if(isSel) cls += ' dp-selected';
+    const disabled = isSun||isHol;
+    const title = isHol?'Hari Libur Nasional':isSun?'Hari Minggu':'';
+    const onclickAttr = disabled ? '' : 'onclick="selectDPDate(\'' + ds + '\')"';
+    html += '<div class="'+cls+'" title="'+title+'" '+onclickAttr+'>'+d+'</div>';
   }
-
-  var firstDay = new Date(dpYear, dpMonth, 1).getDay();
-  var daysInMonth = new Date(dpYear, dpMonth+1, 0).getDate();
-
-  // Empty slots
-  for(var ei=0; ei<firstDay; ei++) {
-    html += '<div style="min-height:30px;"></div>';
-  }
-
-  // Day cells
-  for(var d=1; d<=daysInMonth; d++) {
-    var ds = dpYear + '-' + String(dpMonth+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
-    var isSun = new Date(ds+'T12:00:00').getDay() === 0;
-    var isHol = (typeof HARI_LIBUR_NASIONAL!=='undefined' && Array.isArray(HARI_LIBUR_NASIONAL) && HARI_LIBUR_NASIONAL.includes(ds));
-    var isTod = ds === today;
-    var isSel = ds === dpSelectedDate;
-    var disabled = isSun || isHol;
-
-    var bg = isSel ? '#F5A800' : 'transparent';
-    var col2 = isSel ? '#111' : isSun||isHol ? '#E74C3C' : isTod ? '#2ECC71' : '#CCCCCC';
-    var border = isTod && !isSel ? '1px solid #2ECC71' : '1px solid transparent';
-    var fw = isSel ? '700' : '400';
-    var cursor = disabled ? 'default' : 'pointer';
-    var opacity = disabled ? '0.45' : '1';
-    var onclick = disabled ? '' : 'onclick="selectDPDate(\''+ds+'\')"';
-    var title = isHol ? 'Hari Libur' : isSun ? 'Minggu' : '';
-
-    html += '<div '+onclick+' title="'+title+'" style="'
-      +'text-align:center;padding:5px 2px;border-radius:6px;cursor:'+cursor+';'
-      +'font-size:12px;color:'+col2+';background:'+bg+';border:'+border+';'
-      +'font-weight:'+fw+';opacity:'+opacity+';min-height:30px;line-height:20px;'
-      +'user-select:none;">'+d+'</div>';
-  }
-
   grid.innerHTML = html;
 }
 
@@ -6253,14 +6175,14 @@ function buatLaporanPayroll() {
   let html = `<div class="laporan-card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
       <div>
-        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-weight:700;font-size:16px;">LAPORAN PAYROLL — ${divisiFilter||'SEMUA CABANG'}</div>
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-weight:700;font-size:16px;">LAPORAN PAYROLL — ${divisiFilter||'SEMUA DIVISI'}</div>
         <div style="font-size:12px;color:var(--gray);">Periode: ${periodeLabel} · Dibuat: ${new Date().toLocaleString('id-ID')}</div>
       </div>
       <span class="badge badge-gold">DRAFT</span>
     </div>
     <div class="table-wrap">
     <table style="font-size:12px;">
-      <thead><tr><th>No</th><th>NPK</th><th>Nama</th><th>Cabang</th><th>Gaji Pokok</th><th>Tunj.</th><th>Insentif</th><th>Lembur</th><th>UM</th><th>BPJS</th><th>Kasbon</th><th>Telat</th><th><strong>Total</strong></th></tr></thead>
+      <thead><tr><th>No</th><th>NPK</th><th>Nama</th><th>Divisi</th><th>Gaji Pokok</th><th>Tunj.</th><th>Insentif</th><th>Lembur</th><th>UM</th><th>BPJS</th><th>Kasbon</th><th>Telat</th><th><strong>Total</strong></th></tr></thead>
       <tbody>`;
 
   let grandTotal=0;
@@ -6363,11 +6285,11 @@ function exportPayrollWithSign(namaHRD, jabatan, periode, divisiFilter) {
 
   const wb = XLSX.utils.book_new();
   const rows = [
-    [`LAPORAN PAYROLL RUANGPRINT — ${divisiFilter||'SEMUA CABANG'}`],
+    [`LAPORAN PAYROLL RUANGPRINT — ${divisiFilter||'SEMUA DIVISI'}`],
     [`Periode: ${periodeLabel}`,'',`Dibuat: ${new Date().toLocaleString('id-ID')}`],
     [`Disetujui oleh: ${namaHRD}`,'',`Jabatan: ${jabatan||'HRD'}`],
     [],
-    ['No','NPK','Nama Karyawan','Cabang','Gaji Pokok','Tunjangan','Insentif Kerajinan','Lembur','Uang Makan','BPJS','Cicilan Kasbon','Potongan Telat','TOTAL TRANSFER']
+    ['No','NPK','Nama Karyawan','Divisi','Gaji Pokok','Tunjangan','Insentif Kerajinan','Lembur','Uang Makan','BPJS','Cicilan Kasbon','Potongan Telat','TOTAL TRANSFER']
   ];
 
   let grandTotal = 0;
@@ -6614,28 +6536,31 @@ function cocokanKaryawan(namaInput) {
 function parseFlexDate(s) {
   if(!s) return '';
   s = String(s).trim();
-  // Excel serial number
+  // Helper: format Date lokal ke YYYY-MM-DD tanpa UTC shift
+  function localYMD(d) {
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  // Excel serial number — koreksi timezone
   if(/^\d{5}$/.test(s)) {
-    const d = new Date((parseInt(s)-25569)*86400000);
-    return d.toISOString().split('T')[0];
+    const ms = (parseInt(s)-25569)*86400000;
+    const d = new Date(ms);
+    const local = new Date(ms + d.getTimezoneOffset()*60000);
+    return localYMD(local);
   }
   // DD/MM/YYYY atau DD-MM-YYYY
   let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
-  // YYYY/MM/DD atau YYYY-MM-DD
-  m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  // YYYY-MM-DD atau YYYY/MM/DD (prioritas — cek dulu sebelum fallback)
+  m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
   if(m) return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
   // MM/DD/YYYY
   m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if(m) {
-    // Heuristic: jika bulan >12 swap
     if(parseInt(m[1])>12) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
     return m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0');
   }
-  // Already ISO
-  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
-  // Date string "Mon Jan 01 2025"
-  try { const d=new Date(s); if(!isNaN(d)) return d.toISOString().split('T')[0]; } catch(e){}
+  // Fallback Date string — pakai local date
+  try { const d=new Date(s); if(!isNaN(d)) return localYMD(d); } catch(e){}
   return '';
 }
 
@@ -6862,47 +6787,6 @@ function renderSettings() {
   if(thr) thr.value  = ATURAN.thresholdShift2 || '10:30';
   // Batas malam
   document.getElementById('set-batas-malam').value = ATURAN.batasMalam || '22:30';
-  // Cabang custom list
-  renderDivisiMgmtList();
-}
-
-function renderDivisiMgmtList(){
-  var el=document.getElementById('divisi-mgmt-list');if(!el)return;
-  var custom=ATURAN.customDivisi||[];
-  if(!custom.length){el.innerHTML='<div style="color:var(--gray);font-size:12px;padding:8px 0;">Belum ada divisi/cabang tambahan.</div>';return;}
-  el.innerHTML=custom.map(function(d,i){
-    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--dark3);">'
-      +'<span style="width:12px;height:12px;border-radius:50%;background:'+d.warna+';display:inline-block;flex-shrink:0;"></span>'
-      +'<strong style="min-width:50px;color:var(--white);">'+d.kode+'</strong>'
-      +'<span style="flex:1;color:var(--gray);">'+d.nama+'</span>'
-      +'<button class="btn btn-outline" style="padding:3px 10px;font-size:11px;color:var(--red);border-color:var(--red);" onclick="hapusDivisi('+i+')">🗑 Hapus</button>'
-      +'</div>';
-  }).join('');
-}
-function hapusDivisi(idx){
-  if(!confirm('Hapus divisi ini? Karyawan dengan divisi ini tidak akan ikut filter.'))return;
-  ATURAN.customDivisi.splice(idx,1);
-  saveToStorage();if(typeof supabaseSave==='function')supabaseSave();
-  renderDivisiMgmtList();
-  showAlert('✅ Cabang dihapus');
-}
-function tambahDivisi(){
-  var kode=(document.getElementById('new-div-kode').value||'').trim().toUpperCase();
-  var nama=(document.getElementById('new-div-nama').value||'').trim();
-  var warna=document.getElementById('new-div-warna').value||'#607D8B';
-  if(!kode||!nama){showAlert('⚠️ Kode dan nama wajib diisi!','#E74C3C');return;}
-  if(typeof ATURAN==='undefined'){showAlert('⚠️ App belum siap, coba lagi.','#E74C3C');return;}
-  if(getAllDivisiKodes().includes(kode)){showAlert('⚠️ Kode '+kode+' sudah ada!','#E74C3C');return;}
-  if(!ATURAN.customDivisi)ATURAN.customDivisi=[];
-  ATURAN.customDivisi.push({kode:kode,nama:nama,warna:warna});
-  if(typeof DIVISI_WARNA!=='undefined')DIVISI_WARNA[kode]=warna;
-  saveToStorage();if(typeof supabaseSave==='function')supabaseSave();
-  applyCustomDivisi();
-  renderDivisiMgmtList();
-  document.getElementById('new-div-kode').value='';
-  document.getElementById('new-div-nama').value='';
-  document.getElementById('new-div-warna').value='#607D8B';
-  showAlert('✅ Cabang '+kode+' — '+nama+' berhasil ditambahkan!');
 }
 
 function simpanAturan() {
@@ -7153,7 +7037,7 @@ function printLaporanAbsensi() {
     +'<div class="pdf-stat"><div class="pdf-stat-label">Karyawan Aktif</div><div class="pdf-stat-val">'+aktif.length+'</div></div>'
     +'</div>'
     +'<table class="pdf-table"><thead><tr>'
-    +'<th>No</th><th>NPK</th><th>Nama Karyawan</th><th>Cabang</th>'
+    +'<th>No</th><th>NPK</th><th>Nama Karyawan</th><th>Divisi</th>'
     +'<th>Hadir</th><th>Sakit</th><th>Izin</th><th>Alpha</th><th>% Hadir</th><th>Telat (mnt)</th>'
     +'</tr></thead><tbody>'+rows+'</tbody></table>'
     + pdfFooter('Periode: '+label);
@@ -7327,7 +7211,7 @@ function printLaporanTahunan() {
 
 
 
-// ============ LAPORAN DENGAN FILTER CABANG ============
+// ============ LAPORAN DENGAN FILTER DIVISI ============
 
 function getLapDiv(elId) {
   var el = document.getElementById(elId);
@@ -7512,7 +7396,7 @@ function renderDivisiChart() {
   var el = document.getElementById('dash-divisi-chart');
   if(!el) return;
   var today = todayStr();
-  var divList = getAllDivisiKodes();
+  var divList = ['HO','DMB','CTR','GDS','BKS','CKG'];
   var rows = divList.map(function(div){
     var total = db.karyawan.filter(function(k){return k.status==='Aktif'&&(k.divisi||'')=== div;}).length;
     if(!total) return '';
@@ -7599,7 +7483,7 @@ function restoreJSON(input) {
   reader.readAsText(file);
 }
 
-// ============ FILTER CABANG (SAFE, TANPA MUTASI DB) ============
+// ============ FILTER DIVISI (SAFE, TANPA MUTASI DB) ============
 function getFilteredKasbonData() {
   var divFilter = document.getElementById('filterKasbonDivisi') ? document.getElementById('filterKasbonDivisi').value : '';
   if(!divFilter) return db.kasbon.slice();
@@ -7895,7 +7779,7 @@ function importExcelKaryawan(input) {
           else if(cabang.toLowerCase().includes('citra raya')||cabang.toLowerCase().includes('ctr')) divisi='CTR';
           else if(cabang.toLowerCase().includes('gading')||cabang.toLowerCase().includes('gds')) divisi='GDS';
           else if(cabang.toLowerCase().includes('bekasi')||cabang.toLowerCase().includes('bks')) divisi='BKS';
-          else if(cabang.toLowerCase().includes('cengkareng')||cabang.toLowerCase().includes('cgk')) divisi='CGK';
+          else if(cabang.toLowerCase().includes('cengkareng')||cabang.toLowerCase().includes('ckg')) divisi='CKG';
         }
 
         const rawUMMode = colUMMode>=0?String(r[colUMMode]||'').toLowerCase().trim():'';
@@ -8007,7 +7891,7 @@ function exportTemplateKaryawan() {
   // Export data karyawan yang sudah ada sebagai template Excel
   const wb = XLSX.utils.book_new();
   const headers = [
-    'Nama','Jabatan','Cabang (HO/DMB/CTR/GDS/BKS/CGK)','Cabang',
+    'Nama','Jabatan','Divisi (HO/DMB/CTR/GDS/BKS/CKG)','Cabang',
     'No. HP','Gaji Pokok','Tunjangan Jabatan','BPJS (nominal)',
     'Upah Lembur per Jam (5000/6000/7000)','Tanggal Masuk (YYYY-MM-DD)',
     'Hak Cuti (ya/tidak)','UM Mode (minggu/bulanan)','Status (Aktif/Tidak Aktif)','NPK'
@@ -8041,7 +7925,7 @@ function exportTemplateKaryawan() {
     ['Kolom','Keterangan','Contoh nilai'],
     ['Nama','Nama lengkap karyawan (WAJIB)','Budi Santoso'],
     ['Jabatan','Posisi/jabatan karyawan','Operator Mesin'],
-    ['Cabang','Kode divisi (WAJIB)','HO / DMB / CTR / GDS / BKS / CGK / ..custom..'],
+    ['Divisi','Kode divisi (WAJIB)','HO / DMB / CTR / GDS / BKS / CKG'],
     ['Cabang','Nama cabang lengkap','Head Office / Daan Mogot Baru'],
     ['No. HP','Nomor HP karyawan','0812-3456-7890'],
     ['Gaji Pokok','Gaji pokok bulanan (WAJIB, angka saja)','4500000'],
@@ -8052,11 +7936,11 @@ function exportTemplateKaryawan() {
     ['Hak Cuti','Apakah punya hak cuti tahunan?','ya atau tidak'],
     ['UM Mode','Cara bayar uang makan','minggu (Jum-Kam) atau bulanan'],
     ['Status','Status karyawan','Aktif atau Tidak Aktif'],
-    ['NPK','Nomor Pokok Karyawan (opsional)','CGK-001'],
-    [''],['CABANG'],
+    ['NPK','Nomor Pokok Karyawan (opsional)','CKG-001'],
+    [''],['DIVISI & CABANG'],
     ['Kode','Nama Cabang'],
     ['HO','Head Office'],['DMB','Daan Mogot Baru'],['CTR','Citra Raya'],
-    ['GDS','Gading Serpong'],['BKS','Bekasi'],['CGK','CGK'],
+    ['GDS','Gading Serpong'],['BKS','Bekasi'],['CKG','Cengkareng'],
   ]);
   wsPanduan['!cols']=[{wch:25},{wch:45},{wch:30}];
   XLSX.utils.book_append_sheet(wb, wsPanduan, 'Panduan');
@@ -8069,7 +7953,14 @@ function exportExcelGaji() {
   const periodeLabel = (function(p){var s=p.split('-');return new Date(+s[0],+s[1]-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});})(periode);
   const wb = XLSX.utils.book_new();
 
-  const DIVISI_LIST = getAllDivisiKodes().map(function(kode){return {kode:kode,nama:'DATA GAJI KARYAWAN RUANGPRINT '+getDivisiNama(kode)};});
+  const DIVISI_LIST = [
+    { kode:'HO',  nama:'DATA GAJI KARYAWAN RUANGPRINT HO' },
+    { kode:'DMB', nama:'DATA GAJI KARYAWAN RUANGPRINT DMB' },
+    { kode:'CTR', nama:'DATA GAJI KARYAWAN RUANGPRINT CTR' },
+    { kode:'GDS', nama:'DATA GAJI KARYAWAN RUANGPRINT GDS' },
+    { kode:'BKS', nama:'DATA GAJI KARYAWAN RUANGPRINT BKS' },
+    { kode:'CKG', nama:'DATA GAJI KARYAWAN RUANGPRINT CENGKARENG' },
+  ];
 
   // Hitung hari kerja bulan ini
   const thn = +periode.split('-')[0], bln = +periode.split('-')[1]-1;
@@ -8152,13 +8043,13 @@ function exportExcelGaji() {
     XLSX.utils.book_append_sheet(wb, ws, div.kode);
   });
 
-  // Sheet TOTAL SEMUA CABANG
+  // Sheet TOTAL SEMUA DIVISI
   const rowsTotal = [];
-  rowsTotal.push([`REKAP TOTAL GAJI SEMUA CABANG - RUANGPRINT`]);
+  rowsTotal.push([`REKAP TOTAL GAJI SEMUA DIVISI - RUANGPRINT`]);
   rowsTotal.push([`Periode : ${periodeLabel}`, '', `Hari Kerja : ${hariKerja}`]);
   rowsTotal.push([]);
   rowsTotal.push([
-    'No','Nama Karyawan','Cabang','Cabang','Jumlah Hari',
+    'No','Nama Karyawan','Divisi','Cabang','Jumlah Hari',
     'Gaji Bulanan','Tunjangan Jabatan','Insentif Kerajinan','Lembur',
     'Uang Makan','Potongan BPJS','Potongan Telat','Kas Bon',
     'Alpha','Sisa Kasbon','Total Gaji'
@@ -8434,11 +8325,6 @@ function resetStorage() {
 // Auto-save setiap perubahan data
 function patchDb() {
   if(!db.potonganDadakan) db.potonganDadakan = [];
-  // Patch NPK kosong dari data default (penting setelah sync Supabase)
-  var _defaultNpk = {1:'201805005',2:'202003012',3:'202207052',4:'202209057',5:'202306092',6:'202402111',7:'202103029',8:'202410138',9:'202301080',10:'202306092',11:'202602190',12:'201509002',13:'201912011',14:'202008015',15:'202111041',16:'202208055',17:'202307097',18:'202307098',19:'202307099',20:'202405116',21:'202406122',22:'202406125',23:'202409132',24:'202409134',25:'202412144',26:'202504152',27:'202508177',28:'202509182',29:'202510184',30:'202511198',31:'202604199',32:'201504001',33:'202011021',34:'202209065',35:'202306093',36:'202306095',37:'202306096',38:'202510193',39:'202511196',40:'202604193',41:'202604197',42:'202201045',43:'202105032',44:'202209064',45:'202301081',46:'202312107',47:'202505155',48:'202508176',49:'202510183',50:'202511201',51:'202604200',52:'202102026',53:'202209060',54:'202209061',55:'202209062',56:'202306094',57:'202407128',58:'202501146',59:'202501147',60:'202506161',61:'202506166',62:'202506169',63:'202507171',64:'202507173',65:'202510191',66:'202502192',67:'201805004',68:'202211075',69:'202510186',70:'202510187',71:'202510188',72:'202510189',73:'202510192'};
-  db.karyawan.forEach(function(k){
-    if((!k.npk||k.npk==='-'||k.npk==='')&&_defaultNpk[k.id]) k.npk=_defaultNpk[k.id];
-  });
   ['karyawan','absensi','lembur','cuti','kasbon','gaji','potonganDadakan'].forEach(key => {
     const arr = db[key];
     arr.push = function() {
@@ -8555,7 +8441,6 @@ patchDb();
 updatePeriodeOptions();
 updateUMMingguOptions();
 updateKaryawanSelects();
-applyCustomDivisi();
 renderDashboard();
 document.getElementById('filterAbsensi').value=todayStr().slice(0,7);
 // Login screen ditampilkan, navigate akan diblok sampai login
@@ -8734,7 +8619,7 @@ function showDetailAbsensi(karyawanId, nama, divisi) {
     var printContent = '<div class="pdf-header">'
       +'<div><div class="pdf-company">RUANG<span>PRINT</span></div>'
       +'<div class="pdf-title">DETAIL ABSENSI KARYAWAN</div>'
-      +'<div style="font-size:11px;color:#888;">Periode: '+periodeLabel+' | Cabang: '+divisi+'</div></div>'
+      +'<div style="font-size:11px;color:#888;">Periode: '+periodeLabel+' | Divisi: '+divisi+'</div></div>'
       +'<div class="pdf-meta">'+nama+'<br>Dicetak: '+new Date().toLocaleString('id-ID')+'</div>'
       +'</div>'
       +'<div style="display:flex;gap:12px;margin-bottom:14px;">'
